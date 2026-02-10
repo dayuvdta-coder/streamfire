@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= t.profile %> - StreamFire
+    </title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #f0f9ff;
+        }
+
+        .neo-border {
+            border: 2px solid #000;
+        }
+
+        .neo-shadow {
+            box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1);
+        }
+
+        .neo-shadow-hover:hover {
+            box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 1);
+            transform: translate(2px, 2px);
+        }
+
+        .neo-input {
+            border: 2px solid #000;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .neo-input:focus {
+            background-color: #fff9c4;
+        }
+    </style>
+</head>
+
+<body class="text-black antialiased selection:bg-purple-400 selection:text-black">
+
+    <%- include('partials/header', { path: '/profile' }) %>
+
+        <div class="md:ml-64 min-h-screen flex flex-col">
+            <header
+                class="h-16 border-b-2 border-black bg-purple-400 sticky top-0 z-30 flex items-center justify-between px-4 md:px-8">
+                <h1 class="text-2xl font-black text-black italic tracking-tighter uppercase">
+                    <%= t.profile_settings %>
+                </h1>
+            </header>
+
+            <main class="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full">
+
+                <% if (query.success) { %>
+                    <div class="mb-6 bg-lime-300 border-2 border-black p-4 neo-shadow flex items-center gap-3">
+                        <i class="fas fa-check-circle text-xl"></i>
+                        <span class="font-bold">
+                            <%= query.success %>
+                        </span>
+                    </div>
+                    <% } %>
+
+                        <% if (query.error) { %>
+                            <div class="mb-6 bg-red-400 border-2 border-black p-4 neo-shadow flex items-center gap-3">
+                                <i class="fas fa-exclamation-triangle text-xl"></i>
+                                <span class="font-bold">
+                                    <%= query.error %>
+                                </span>
+                            </div>
+                            <% } %>
+
+                                <form action="/profile" method="POST" enctype="multipart/form-data"
+                                    class="bg-white border-2 border-black neo-shadow p-6 md:p-8">
+
+                                    <!-- Avatar Section -->
+                                    <div class="flex flex-col md:flex-row gap-8 mb-8 items-center md:items-start">
+                                        <div class="relative group">
+                                            <div
+                                                class="w-32 h-32 border-2 border-black overflow-hidden bg-gray-100 neo-shadow">
+                                                <% if (user.avatar) { %>
+                                                    <img src="/uploads/avatars/<%= user.avatar %>" alt="Avatar"
+                                                        class="w-full h-full object-cover">
+                                                    <% } else { %>
+                                                        <div
+                                                            class="w-full h-full flex items-center justify-center bg-white">
+                                                            <img src="/img/logo.png" alt="Avatar"
+                                                                class="w-full h-full object-cover">
+                                                        </div>
+                                                        <% } %>
+                                            </div>
+                                            <label for="avatar"
+                                                class="absolute bottom-0 right-0 bg-black text-white p-2 border-2 border-white cursor-pointer hover:bg-gray-800 transition-colors">
+                                                <i class="fas fa-camera"></i>
+                                                <input type="file" name="avatar" id="avatar" class="hidden"
+                                                    accept="image/*"
+                                                    onchange="document.getElementById('avatar-preview').classList.remove('hidden')">
+                                            </label>
+                                        </div>
+
+                                        <div class="flex-1 space-y-4 w-full">
+                                            <div>
+                                                <label
+                                                    class="block text-xs font-bold text-black uppercase mb-1.5 bg-cyan-300 inline-block px-1 border-2 border-black">
+                                                    <%= t.username %>
+                                                </label>
+                                                <input type="text" name="username" value="<%= user.username %>"
+                                                    class="w-full neo-input px-4 py-3 text-sm font-bold bg-gray-100">
+                                            </div>
+
+                                            <div>
+                                                <label
+                                                    class="block text-xs font-bold text-black uppercase mb-1.5 bg-pink-300 inline-block px-1 border-2 border-black">
+                                                    <%= t.language %>
+                                                </label>
+                                                <select name="language"
+                                                    class="w-full neo-input px-4 py-3 text-sm font-bold bg-white">
+                                                    <option value="id" <%=user.language==='id' ? 'selected' : '' %>
+                                                        >Bahasa Indonesia 🇮🇩</option>
+                                                    <option value="en" <%=user.language==='en' ? 'selected' : '' %>
+                                                        >English 🇺🇸</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <hr class="border-black border-dashed border-t-2 my-8">
+
+                                    <h3 class="text-xl font-black uppercase mb-6 flex items-center gap-2">
+                                        <i class="fas fa-lock"></i>
+                                        <%= t.change_password %>
+                                    </h3>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                        <div>
+                                            <label class="block text-xs font-bold text-black uppercase mb-1.5">
+                                                <%= t.current_password %>
+                                            </label>
+                                            <input type="password" name="password"
+                                                class="w-full neo-input px-4 py-3 text-sm font-bold"
+                                                placeholder="••••••••">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold text-black uppercase mb-1.5">
+                                                <%= t.new_password %>
+                                            </label>
+                                            <input type="password" name="new_password"
+                                                class="w-full neo-input px-4 py-3 text-sm font-bold"
+                                                placeholder="••••••••">
+                                        </div>
+                                    </div>
+
+                                    <button type="submit"
+                                        class="w-full bg-black text-white hover:bg-gray-800 border-2 border-black font-black py-4 neo-shadow active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-lg">
+                                        <i class="fas fa-save"></i> <span>
+                                            <%= t.save_changes %>
+                                        </span>
+                                    </button>
+
+                                </form>
+            </main>
+        </div>
+
+        <script>
+            const originalWarn = console.warn;
+            console.warn = (...args) => {
+                if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
+                originalWarn(...args);
+            };
+        </script>
+</body>
+
+</html>

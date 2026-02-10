@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= title %>
+    </title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #fcd34d;
+        }
+    </style>
+</head>
+
+<body
+    class="min-h-screen flex items-center justify-center p-4 relative overflow-y-auto bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC4xIi8+PC9zdmc+')]">
+
+    <div
+        class="bg-white w-full max-w-md p-8 border-4 border-black shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] relative z-10">
+        <div class="text-center mb-8">
+            <div
+                class="inline-flex items-center justify-center w-24 h-24 bg-cyan-400 border-4 border-black mb-6 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transform rotate-3 hover:rotate-0 transition-all overflow-hidden">
+                <img src="/img/logo.png" alt="Logo" class="w-full h-full object-cover">
+            </div>
+            <h1 class="text-4xl font-black text-black mb-2 uppercase italic tracking-tighter">
+                <%= t.login_title %>
+            </h1>
+            <p class="text-black font-bold bg-pink-300 inline-block px-2 border-2 border-black transform -rotate-2">
+                <%= t.login_subtitle %>
+            </p>
+        </div>
+
+        <% if (error) { %>
+            <div
+                class="bg-red-500 border-2 border-black text-white px-4 py-3 mb-6 flex items-center gap-3 text-sm font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <i class="fas fa-exclamation-triangle text-xl"></i>
+                <span>
+                    <%= error %>
+                </span>
+            </div>
+            <% } %>
+
+                <form action="/login" method="POST" class="space-y-5">
+                    <div>
+                        <label for="username" class="block text-xs font-black text-black uppercase mb-1.5 ml-1">
+                            <%= t.username %>
+                        </label>
+                        <div class="relative group">
+                            <span
+                                class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-black border-r-2 border-black pr-3 bg-gray-100 h-full z-20">
+                                <i class="fas fa-user text-sm"></i>
+                            </span>
+                            <input type="text" id="username" name="username" required
+                                class="w-full bg-white border-2 border-black px-4 py-3 pl-14 text-black focus:bg-yellow-50 focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:translate-x-[-2px] focus:translate-y-[-2px] outline-none transition-all placeholder-gray-400 font-bold border-l-0 relative z-10">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="password" class="block text-xs font-black text-black uppercase mb-1.5 ml-1">
+                            <%= t.password %>
+                        </label>
+                        <div class="relative group">
+                            <span
+                                class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-black border-r-2 border-black pr-3 bg-gray-100 h-full z-20">
+                                <i class="fas fa-key text-sm"></i>
+                            </span>
+                            <input type="password" id="password" name="password" required
+                                class="w-full bg-white border-2 border-black px-4 py-3 pl-14 text-black focus:bg-yellow-50 focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:translate-x-[-2px] focus:translate-y-[-2px] outline-none transition-all placeholder-gray-400 font-bold border-l-0">
+                        </div>
+                    </div>
+
+                    <button type="submit"
+                        class="w-full bg-black text-white hover:bg-white hover:text-black border-2 border-black font-black py-4 px-4 shadow-[5px_5px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transform transition-all active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center gap-2 group mt-4 text-lg uppercase tracking-widest">
+                        <span>
+                            <%= t.enter_system %>
+                        </span>
+                        <i class="fas fa-arrow-right text-sm"></i>
+                    </button>
+                </form>
+
+                <div class="mt-8 text-center border-t-2 border-black pt-6">
+                    <p class="text-xs font-bold text-black opacity-60 uppercase">&copy; <%= new Date().getFullYear() %>
+                            StreamFire</p>
+                </div>
+    </div>
+</body>
+
+</html>
