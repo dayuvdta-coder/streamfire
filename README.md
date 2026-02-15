@@ -37,7 +37,17 @@
 - Menggunakan FFmpeg sistem → anti crash & memory leak
 - Support multi-platform: YouTube, Twitch, Facebook, TikTok, Custom RTMP
 
-## Quick Start (Cuma 3 Menit!)
+## Quick Install (Otomatis)
+Jalankan perintah ini di terminal VPS kamu (Ubuntu/Debian):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/broman0x/streamfire/main/install.sh | sudo bash
+```
+
+Script ini akan otomatis menginstall FFmpeg, Node.js, clone repository, dan menjalankan aplikasi.
+
+## Manual Install
+Jika ingin install manual:
 ```bash
 sudo apt update && sudo apt upgrade -y
 sudo apt install ffmpeg nodejs npm git curl -y

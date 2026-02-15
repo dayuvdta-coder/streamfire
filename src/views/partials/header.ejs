@@ -1,12 +1,10 @@
 <script>
-    // Suppress Tailwind CDN warning
     const originalWarn = console.warn;
     console.warn = (...args) => {
         if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
         originalWarn(...args);
     };
 
-    // Client-side translations
     window.t = {
         delete_confirm_title: "<%= t.delete_confirm_title %>",
         delete_confirm_text: "<%= t.delete_confirm_text %>",
