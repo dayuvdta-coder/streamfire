@@ -69,6 +69,45 @@ function toPositiveInt(value, fallback) {
   return Math.floor(parsed);
 }
 
+function normalizeProxyServer(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^[a-z]+:\/\//i.test(raw)) return raw;
+  return `http://${raw}`;
+}
+
+function buildPlaywrightProxyConfig() {
+  const proxyUrlRaw = String(process.env.IG_PROXY_URL || '').trim();
+  const proxyServerRaw = String(process.env.IG_PROXY_SERVER || '').trim();
+  const proxyUsernameRaw = String(process.env.IG_PROXY_USERNAME || '').trim();
+  const proxyPasswordRaw = String(process.env.IG_PROXY_PASSWORD || '');
+  const proxyBypassRaw = String(process.env.IG_PROXY_BYPASS || '').trim();
+
+  const fromEnvParts = (server, username, password) => {
+    const normalizedServer = normalizeProxyServer(server);
+    if (!normalizedServer) return null;
+    const out = { server: normalizedServer };
+    if (username) out.username = username;
+    if (password) out.password = password;
+    if (proxyBypassRaw) out.bypass = proxyBypassRaw;
+    return out;
+  };
+
+  if (proxyUrlRaw) {
+    try {
+      const parsed = new URL(proxyUrlRaw);
+      const server = `${parsed.protocol}//${parsed.host}`;
+      const username = proxyUsernameRaw || decodeURIComponent(parsed.username || '');
+      const password = proxyPasswordRaw || decodeURIComponent(parsed.password || '');
+      return fromEnvParts(server, username, password);
+    } catch (_) {
+      return fromEnvParts(proxyUrlRaw, proxyUsernameRaw, proxyPasswordRaw);
+    }
+  }
+
+  return fromEnvParts(proxyServerRaw, proxyUsernameRaw, proxyPasswordRaw);
+}
+
 function sanitizeAudience(value) {
   return ALLOWED_AUDIENCE.has(value) ? value : 'Public';
 }
@@ -1602,7 +1641,16 @@ class InstagramLiveService {
         launchOptions.executablePath = '/opt/google/chrome/chrome';
       }
 
+      const proxyConfig = buildPlaywrightProxyConfig();
+      if (proxyConfig && proxyConfig.server) {
+        launchOptions.proxy = proxyConfig;
+      }
+
       this.addLog(`Launching browser (headless=${String(launchOptions.headless)})...`);
+      if (launchOptions.proxy?.server) {
+        const authLabel = launchOptions.proxy.username ? ` user=${launchOptions.proxy.username}` : '';
+        this.addLog(`Using IG browser proxy ${launchOptions.proxy.server}${authLabel}.`);
+      }
 
       try {
         this.browser = await chromium.launch(launchOptions);

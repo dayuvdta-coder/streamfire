@@ -69,6 +69,14 @@ Catatan:
   IG_BROWSER_ACCEPT_LANGUAGE=en-US,en;q=0.9,id;q=0.8
   IG_BROWSER_USER_AGENT=Mozilla/5.0 ...
   ```
+- Untuk Railway/VPS datacenter, login username/password sering kena block IP. Aktifkan proxy di env:
+  ```bash
+  IG_PROXY_URL=http://user:pass@host:port
+  # atau pisah:
+  # IG_PROXY_SERVER=http://host:port
+  # IG_PROXY_USERNAME=user
+  # IG_PROXY_PASSWORD=pass
+  ```
 
 ## Quick Install (Sekali Deploy - Rekomendasi VPS)
 Jalankan 1 command ini di VPS (Ubuntu/Debian):
