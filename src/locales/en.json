@@ -1,7 +1,6 @@
 {
     "dashboard": "DASHBOARD",
     "gallery": "GALLERY",
-    "support": "SUPPORT",
     "logout": "LOGOUT",
     "profile": "PROFILE",
     "total_videos": "Total Videos",
@@ -30,8 +29,6 @@
     "new_password": "New Password",
     "confirm_password": "Confirm Password",
     "current_password": "Current Password",
-    "support_development": "Support Development",
-    "scan_qris": "Scan via any E-Wallet (QRIS)",
     "address_copied": "Address Copied!",
     "status_offline": "OFFLINE",
     "status_live": "LIVE",

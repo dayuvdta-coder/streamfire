@@ -2,7 +2,7 @@ const bcrypt = require('bcrypt');
 const db = require('../models/database');
 
 exports.getLogin = (req, res) => {
-    res.render('auth/login', { title: 'Login - StreamFire', error: null });
+    res.render('auth/login', { title: 'Login - Streamingku', error: null });
 };
 
 exports.postLogin = async (req, res) => {
@@ -32,7 +32,7 @@ exports.postLogin = async (req, res) => {
 exports.getSetup = (req, res) => {
     db.get('SELECT count(*) as count FROM users', [], (err, row) => {
         if (!err && row.count === 0) {
-            return res.render('auth/setup', { title: 'Setup - StreamFire', error: null });
+            return res.render('auth/setup', { title: 'Setup - Streamingku', error: null });
         }
         res.redirect('/login');
     });

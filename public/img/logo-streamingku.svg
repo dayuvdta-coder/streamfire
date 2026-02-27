@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Streamingku Logo</title>
+  <desc id="desc">Logo bergaya modern dengan tombol play dan gelombang siaran.</desc>
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee" />
+      <stop offset="55%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#facc15" />
+    </linearGradient>
+    <linearGradient id="playGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1f2937" />
+    </linearGradient>
+  </defs>
+
+  <rect x="42" y="42" width="428" height="428" rx="112" fill="url(#bgGradient)" stroke="#111827" stroke-width="16" />
+  <circle cx="390" cy="126" r="22" fill="#ffffff" stroke="#111827" stroke-width="10" />
+  <circle cx="122" cy="390" r="16" fill="#ffffff" stroke="#111827" stroke-width="8" />
+
+  <rect x="106" y="106" width="300" height="300" rx="84" fill="#ffffff" stroke="#111827" stroke-width="14" />
+
+  <path d="M166 206C131 230 131 282 166 306" fill="none" stroke="#111827" stroke-width="14" stroke-linecap="round" />
+  <path d="M204 186C157 219 157 293 204 326" fill="none" stroke="#111827" stroke-width="12" stroke-linecap="round" />
+  <path d="M346 206C381 230 381 282 346 306" fill="none" stroke="#111827" stroke-width="14" stroke-linecap="round" />
+  <path d="M308 186C355 219 355 293 308 326" fill="none" stroke="#111827" stroke-width="12" stroke-linecap="round" />
+
+  <path d="M226 185L332 256L226 327Z" fill="url(#playGradient)" stroke="#111827" stroke-width="10" stroke-linejoin="round" />
+  <rect x="174" y="358" width="164" height="34" rx="14" fill="#fef08a" stroke="#111827" stroke-width="8" />
+  <text x="256" y="381" text-anchor="middle" font-family="Outfit, Arial, sans-serif" font-size="23" font-weight="800" fill="#111827" letter-spacing="1.5">STREAMINGKU</text>
+</svg>

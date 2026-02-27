@@ -1,8 +1,55 @@
-const ffmpeg = require('ffmpeg-static');
-const { spawn } = require('child_process');
+const ffmpegStatic = require('ffmpeg-static');
+const { spawn, spawnSync } = require('child_process');
 const logger = require('../utils/logger');
 const fs = require('fs');
 const path = require('path');
+
+function asPositiveInt(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.floor(parsed);
+}
+
+const RESTART_BASE_DELAY_MS = asPositiveInt(process.env.FFMPEG_RESTART_BASE_DELAY_MS, 3000);
+const RESTART_MAX_DELAY_MS = asPositiveInt(process.env.FFMPEG_RESTART_MAX_DELAY_MS, 60000);
+
+function resolveFfmpegBinary() {
+  const candidates = [];
+
+  if (process.env.FFMPEG_PATH) {
+    candidates.push(String(process.env.FFMPEG_PATH).trim());
+  }
+
+  if (process.env.FFMPEG_USE_SYSTEM !== '0') {
+    candidates.push('/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', 'ffmpeg');
+  }
+
+  if (ffmpegStatic) {
+    candidates.push(ffmpegStatic);
+  }
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      const probe = spawnSync(candidate, ['-version'], { stdio: 'ignore' });
+      if (!probe.error && probe.status === 0) {
+        return candidate;
+      }
+    } catch (_) {
+      // try next candidate
+    }
+  }
+
+  return ffmpegStatic || 'ffmpeg';
+}
+
+const ffmpegBinary = resolveFfmpegBinary();
+logger.info(`FFmpeg binary selected: ${ffmpegBinary}`);
+
+function calcRestartDelayMs(restartCount) {
+  const factor = Math.max(0, Number(restartCount) - 1);
+  return Math.min(RESTART_MAX_DELAY_MS, RESTART_BASE_DELAY_MS * Math.pow(2, factor));
+}
 
 function startStream(videoPath, settings = { bitrate: '2500k', resolution: '1280x720', fps: 30 }, loop = false, customRtmp) {
 
@@ -59,30 +106,32 @@ function startStream(videoPath, settings = { bitrate: '2500k', resolution: '1280
     '-b:a', '128k',
   ];
 
-  let destinationStr = '';
+  const destinations = (Array.isArray(customRtmp) ? customRtmp : [customRtmp])
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
 
-  if (Array.isArray(customRtmp)) {
-    if (customRtmp.length === 0) return null;
-
-    const outputs = customRtmp.map(url => {
-      return `[f=flv:onfail=ignore]${url}`;
-    });
-    destinationStr = outputs.join('|');
-  } else {
-    destinationStr = `[f=flv:onfail=ignore]${customRtmp}`;
+  if (destinations.length === 0) {
+    logger.error('FATAL: Missing RTMP destination.');
+    return null;
   }
 
-  args.push(
-    '-f', 'tee',
-    '-map', '0:v',
-    '-map', '0:a',
-    destinationStr
-  );
+  args.push('-map', '0:v', '-map', '0:a');
 
-  logger.info(`System FFmpeg Start: ${w}x${h} @ ${fps}fps`);
+  if (destinations.length === 1) {
+    args.push('-f', 'flv', destinations[0]);
+  } else {
+    const destinationStr = destinations.map((url) => `[f=flv:onfail=ignore]${url}`).join('|');
+    args.push('-f', 'tee', destinationStr);
+  }
 
-  const proc = spawn(ffmpeg, args);
+  logger.info(`System FFmpeg Start: ${w}x${h} @ ${fps}fps (outputs=${destinations.length})`);
+
+  const proc = spawn(ffmpegBinary, args);
   let lastLog = '';
+
+  proc.on('error', (err) => {
+    logger.error(`FFmpeg spawn failed (${ffmpegBinary}): ${err.message}`);
+  });
 
   proc.stderr.on('data', data => {
     lastLog = data.toString();
@@ -95,13 +144,104 @@ function startStream(videoPath, settings = { bitrate: '2500k', resolution: '1280
       logger.info(`Stream stopped.`);
     }
 
+    let matchedVideoId = null;
+    let matchedInfo = null;
+
     for (let videoId in global.streamProcesses) {
       if (global.streamProcesses[videoId].pid === proc.pid) {
-        delete global.streamProcesses[videoId];
-        global.io.emit('streamStatus', { videoId, running: false });
+        matchedVideoId = videoId;
+        matchedInfo = global.streamProcesses[videoId];
         break;
       }
     }
+
+    if (!matchedVideoId || !matchedInfo) {
+      return;
+    }
+
+    if (matchedInfo.owner === 'instagram') {
+      return;
+    }
+
+    const shouldRestart = Boolean(matchedInfo.keepAlive) && !matchedInfo.manualStop;
+
+    if (shouldRestart) {
+      matchedInfo.restarting = true;
+      matchedInfo.restartCount = Number(matchedInfo.restartCount || 0) + 1;
+      const delayMs = calcRestartDelayMs(matchedInfo.restartCount);
+
+      if (matchedInfo.restartTimer) {
+        clearTimeout(matchedInfo.restartTimer);
+      }
+
+      logger.warn(
+        `FFmpeg process for video ${matchedVideoId} stopped. Reconnect attempt ${matchedInfo.restartCount} in ${delayMs}ms.`
+      );
+      if (typeof global.addLog === 'function') {
+        global.addLog(
+          `Stream #${matchedVideoId} disconnected, reconnecting in ${Math.ceil(delayMs / 1000)}s (attempt ${matchedInfo.restartCount}).`,
+          'warning'
+        );
+      }
+
+      global.io.emit('streamStatus', {
+        videoId: matchedVideoId,
+        running: false,
+        restarting: true,
+        restartCount: matchedInfo.restartCount,
+        restartInMs: delayMs,
+        startTime: matchedInfo.startTime || null,
+      });
+
+      matchedInfo.restartTimer = setTimeout(() => {
+        const current = global.streamProcesses[matchedVideoId];
+        if (!current || current.manualStop || !current.keepAlive) {
+          return;
+        }
+
+        const restarted = startStream(
+          current.videoPath,
+          current.settings || settings,
+          current.loop || false,
+          current.customRtmp || customRtmp
+        );
+
+        if (!restarted) {
+          logger.error(`Reconnect failed for video ${matchedVideoId}. Removing from active streams.`);
+          delete global.streamProcesses[matchedVideoId];
+          if (typeof global.addLog === 'function') {
+            global.addLog(`Reconnect stream #${matchedVideoId} failed permanently.`, 'error');
+          }
+          global.io.emit('streamStatus', { videoId: matchedVideoId, running: false, restarting: false });
+          return;
+        }
+
+        current.proc = restarted;
+        current.pid = restarted.pid;
+        current.restarting = false;
+        current.restartTimer = null;
+        current.startTime = new Date().toISOString();
+
+        if (typeof global.addLog === 'function') {
+          global.addLog(`Stream #${matchedVideoId} reconnected (pid=${restarted.pid}).`, 'success');
+        }
+        global.io.emit('streamStatus', {
+          videoId: matchedVideoId,
+          pid: restarted.pid,
+          running: true,
+          restarting: false,
+          restartCount: current.restartCount || 0,
+          startTime: current.startTime,
+        });
+      }, delayMs);
+      return;
+    }
+
+    if (matchedInfo.restartTimer) {
+      clearTimeout(matchedInfo.restartTimer);
+    }
+    delete global.streamProcesses[matchedVideoId];
+    global.io.emit('streamStatus', { videoId: matchedVideoId, running: false, restarting: false });
   });
 
   return proc;

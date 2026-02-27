@@ -24,9 +24,9 @@
         <div class="flex items-center gap-3">
             <div
                 class="w-10 h-10 border-2 border-black bg-white flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
-                <img src="/img/logo.png" alt="Logo" class="w-full h-full object-cover">
+                <img src="/img/logo-streamingku.svg" alt="Logo Streamingku" class="w-full h-full object-cover">
             </div>
-            <span class="font-bold text-lg tracking-tight text-black">STREAMFIRE</span>
+            <span class="font-bold text-lg tracking-tight text-black">STREAMINGKU</span>
         </div>
         <button id="close-sidebar" class="md:hidden text-black hover:text-red-500 transition-colors">
             <i class="fas fa-times text-xl"></i>
@@ -53,17 +53,6 @@
             </span>
         </a>
 
-        <div class="text-xs font-bold text-black uppercase px-3 mt-6 mb-2 tracking-widest border-b-2 border-black pb-1">
-            System</div>
-
-        <a href="/donation"
-            class="flex items-center gap-3 px-3 py-3 border-2 border-black text-sm font-bold transition-all group shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none <%= path === '/donation' ? 'bg-lime-400' : 'bg-white hover:bg-lime-100' %>">
-            <i class="fas fa-heart w-5 text-center text-black"></i>
-            <span class="text-black">
-                <%= t.support %>
-            </span>
-        </a>
-
         <a href="/logout"
             class="flex items-center gap-3 px-3 py-3 border-2 border-black text-sm font-bold transition-all group shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none bg-white hover:bg-red-400 mt-auto">
             <i class="fas fa-sign-out-alt w-5 text-center text-black"></i>
@@ -80,7 +69,8 @@
                 <img src="/uploads/avatars/<%= user.avatar %>" alt="Avatar" class="w-full h-full object-cover">
                 <% } else { %>
                     <div class="w-full h-full flex items-center justify-center bg-white">
-                        <img src="/img/logo.png" alt="Avatar" class="w-full h-full object-cover">
+                        <img src="/img/logo-streamingku.svg" alt="Avatar Streamingku"
+                            class="w-full h-full object-cover">
                     </div>
                     <% } %>
         </div>

@@ -1,12 +1,22 @@
-version: '3'
 services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: streamfire
+    restart: unless-stopped
     ports:
-      - "7575:7575"
-    volumes:
-      - ./db:/app/db
-      - ./logs:/app/logs
-      - ./public/uploads:/app/public/uploads
+      - "${PORT:-7575}:7575"
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
+    volumes:
+      - streamfire_db:/app/db
+      - streamfire_logs:/app/logs
+      - streamfire_uploads:/app/public/uploads
+
+volumes:
+  streamfire_db:
+  streamfire_logs:
+  streamfire_uploads:

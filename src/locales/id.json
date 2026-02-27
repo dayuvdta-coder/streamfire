@@ -1,7 +1,6 @@
 {
     "dashboard": "DASHBOARD",
     "gallery": "GALERI",
-    "support": "DUKUNGAN",
     "logout": "KELUAR",
     "profile": "PROFIL",
     "total_videos": "Total Video",
@@ -30,8 +29,6 @@
     "new_password": "Kata Sandi Baru",
     "confirm_password": "Konfirmasi Kata Sandi",
     "current_password": "Kata Sandi Saat Ini",
-    "support_development": "Dukung Pengembangan",
-    "scan_qris": "Pindai via E-Wallet (QRIS)",
     "address_copied": "Alamat Disalin!",
     "status_offline": "OFFLINE",
     "status_live": "LIVE",

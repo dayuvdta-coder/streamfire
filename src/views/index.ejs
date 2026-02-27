@@ -123,6 +123,478 @@
           </div>
         </div>
 
+        <section class="mb-8 bg-white border-2 border-black p-5 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 border-b-2 border-black pb-3">
+            <h2 class="text-lg md:text-xl font-black uppercase tracking-wide flex items-center gap-2">
+              <i class="fab fa-instagram"></i>
+              Instagram Live
+            </h2>
+            <div class="flex items-center gap-2">
+              <div id="ig-pill"
+                class="inline-flex items-center gap-2 text-[11px] font-bold uppercase px-3 py-1 border-2 border-black bg-gray-100">
+                <span class="w-2 h-2 rounded-full bg-gray-500"></span>
+                <span>Disconnected</span>
+              </div>
+              <div id="ig-ffmpeg-pill"
+                class="inline-flex items-center gap-2 text-[11px] font-bold uppercase px-3 py-1 border-2 border-black bg-gray-100">
+                <span class="w-2 h-2 rounded-full bg-gray-500"></span>
+                <span>FFMPEG OFFLINE</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div class="space-y-3">
+              <label class="text-[11px] font-bold uppercase block">Cookie Instagram</label>
+              <textarea id="ig-cookie"
+                class="w-full bg-gray-50 border-2 border-black p-3 text-xs font-mono h-28 outline-none focus:bg-yellow-100"
+                placeholder="sessionid=...; csrftoken=...;"></textarea>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input id="ig-cookie-name" type="text"
+                  class="w-full bg-gray-50 border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100"
+                  placeholder="Nama cookie (opsional)">
+                <select id="ig-cookie-saved-select"
+                  class="w-full bg-gray-50 border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100">
+                  <option value="">Pilih cookie tersimpan</option>
+                </select>
+              </div>
+              <div class="grid grid-cols-3 gap-2">
+                <button id="ig-cookie-save-btn"
+                  class="w-full bg-yellow-300 hover:bg-yellow-200 border-2 border-black font-black text-[11px] py-2 uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[1px] active:translate-y-[1px] transition-all">
+                  Simpan
+                </button>
+                <button id="ig-cookie-apply-btn"
+                  class="w-full bg-cyan-300 hover:bg-cyan-200 border-2 border-black font-black text-[11px] py-2 uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[1px] active:translate-y-[1px] transition-all">
+                  Pakai
+                </button>
+                <button id="ig-cookie-delete-btn"
+                  class="w-full bg-red-400 hover:bg-red-300 border-2 border-black font-black text-[11px] py-2 uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[1px] active:translate-y-[1px] transition-all">
+                  Hapus
+                </button>
+              </div>
+              <button id="ig-login-btn"
+                class="w-full bg-pink-400 hover:bg-pink-300 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                Login via Cookie
+              </button>
+              <p class="text-[10px] font-medium text-gray-600">
+                Cookie tersimpan hanya di browser ini. Pakai cookie valid dari akun Instagram yang akan live.
+              </p>
+            </div>
+
+            <div class="space-y-3">
+              <label class="text-[11px] font-bold uppercase block">Setup Room Live</label>
+              <input id="ig-title" type="text"
+                class="w-full bg-gray-50 border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100"
+                placeholder="Judul live">
+              <select id="ig-audience"
+                class="w-full bg-gray-50 border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100">
+                <option value="Public">Public</option>
+                <option value="Practice">Practice</option>
+                <option value="Close friends">Close friends</option>
+              </select>
+              <button id="ig-setup-btn"
+                class="w-full bg-lime-400 hover:bg-lime-300 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                Setup Live (Get Key)
+              </button>
+              <input id="ig-stream-url" type="text"
+                class="w-full bg-gray-50 border-2 border-black px-3 py-2 text-[11px] font-mono outline-none focus:bg-yellow-100"
+                placeholder="RTMPS URL (auto/manual)">
+              <input id="ig-stream-key" type="text"
+                class="w-full bg-gray-50 border-2 border-black px-3 py-2 text-[11px] font-mono outline-none focus:bg-yellow-100"
+                placeholder="Stream Key (auto/manual)">
+              <div class="grid grid-cols-2 gap-2">
+                <button id="ig-go-btn"
+                  class="w-full bg-black text-white hover:bg-gray-800 border-2 border-black font-black text-[11px] py-2 uppercase transition-all">
+                  Go Live
+                </button>
+                <button id="ig-end-btn"
+                  class="w-full bg-red-500 text-white hover:bg-red-600 border-2 border-black font-black text-[11px] py-2 uppercase transition-all">
+                  End Live
+                </button>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <label class="text-[11px] font-bold uppercase block">Stream Video ke Instagram</label>
+              <select id="ig-video"
+                class="w-full bg-gray-50 border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100">
+                <% if (videos.length===0) { %>
+                  <option value="">Belum ada video</option>
+                  <% } else { %>
+                    <% videos.forEach((video)=> { %>
+                      <option value="<%= video.id %>">
+                        #<%= video.id %> - <%= video.title %>
+                      </option>
+                      <% }) %>
+                        <% } %>
+              </select>
+
+              <div class="grid grid-cols-3 gap-2">
+                <select id="ig-res"
+                  class="bg-gray-50 border-2 border-black px-2 py-2 text-[10px] font-bold outline-none focus:bg-yellow-100">
+                  <option value="720x1280">720x1280</option>
+                  <option value="1080x1920">1080x1920</option>
+                  <option value="540x960">540x960</option>
+                </select>
+                <select id="ig-fps"
+                  class="bg-gray-50 border-2 border-black px-2 py-2 text-[10px] font-bold outline-none focus:bg-yellow-100">
+                  <option value="30">30 FPS</option>
+                  <option value="24">24 FPS</option>
+                  <option value="60">60 FPS</option>
+                </select>
+                <select id="ig-bit"
+                  class="bg-gray-50 border-2 border-black px-2 py-2 text-[10px] font-bold outline-none focus:bg-yellow-100">
+                  <option value="2500k">2500k</option>
+                  <option value="3500k" selected>3500k</option>
+                  <option value="4500k">4500k</option>
+                  <option value="6000k">6000k</option>
+                </select>
+              </div>
+
+              <label class="flex items-center gap-2 text-[11px] font-bold uppercase">
+                <input id="ig-loop" type="checkbox" class="accent-black w-4 h-4 border-2 border-black">
+                Loop video
+              </label>
+
+              <div class="space-y-1">
+                <label class="text-[11px] font-bold uppercase block">Multi Stream Mirror (Opsional)</label>
+                <textarea id="ig-multi-rtmp"
+                  class="w-full bg-gray-50 border-2 border-black p-2 text-[11px] font-mono h-20 outline-none focus:bg-yellow-100"
+                  placeholder="Satu RTMP per baris, contoh:\nrtmp://live.twitch.tv/app/xxxx\nrtmps://live-api-s.facebook.com:443/rtmp/xxxx"></textarea>
+              </div>
+
+              <button id="ig-start-btn" data-running="false"
+                class="w-full bg-cyan-400 hover:bg-cyan-300 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                Start IG Stream
+              </button>
+            </div>
+          </div>
+
+          <div id="ig-status"
+            class="mt-4 bg-gray-50 border-2 border-black p-3 text-[11px] font-mono leading-relaxed break-words">
+            Loading Instagram status...
+          </div>
+
+          <div class="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div class="bg-gray-50 border-2 border-black p-3">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-black uppercase">Live Chat Monitor</h3>
+                <button id="ig-comments-refresh"
+                  class="bg-white border-2 border-black px-2 py-1 text-[10px] font-bold uppercase hover:bg-yellow-200 transition-all">
+                  Refresh
+                </button>
+              </div>
+              <div id="ig-comments-list"
+                class="h-48 overflow-y-auto bg-white border-2 border-black p-2 text-[11px] font-mono leading-relaxed">
+                Belum ada komentar live.
+              </div>
+            </div>
+
+            <div class="bg-gray-50 border-2 border-black p-3 space-y-2">
+              <h3 class="text-xs font-black uppercase">Kirim Komentar</h3>
+              <textarea id="ig-comment-input"
+                class="w-full bg-white border-2 border-black p-2 text-xs font-mono h-32 outline-none focus:bg-yellow-100"
+                placeholder="Tulis komentar untuk live chat..."></textarea>
+              <button id="ig-comment-send"
+                class="w-full bg-emerald-400 hover:bg-emerald-300 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                Send Comment
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-4 bg-gray-50 border-2 border-black p-3 space-y-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-xs font-black uppercase">Auto Reply AI (Mistral + Template)</h3>
+              <div id="ig-autoreply-pill"
+                class="inline-flex items-center gap-2 text-[10px] font-bold uppercase px-2 py-1 border-2 border-black bg-white">
+                <span class="w-2 h-2 rounded-full bg-gray-500"></span>
+                <span>OFF</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-3">
+              <label class="flex items-center gap-2 text-[11px] font-bold uppercase">
+                <input id="ig-autoreply-enabled" type="checkbox" class="accent-black w-4 h-4 border-2 border-black">
+                Enable Auto Reply
+              </label>
+              <select id="ig-autoreply-mode"
+                class="bg-white border-2 border-black px-2 py-2 text-[11px] font-bold outline-none focus:bg-yellow-100">
+                <option value="template_first">Template + AI Fallback</option>
+                <option value="template_only">Template Only</option>
+                <option value="ai_only">AI Only</option>
+              </select>
+              <div class="grid grid-cols-2 gap-2">
+                <input id="ig-autoreply-cooldown" type="number" min="0" step="1"
+                  class="bg-white border-2 border-black px-2 py-2 text-[11px] font-bold outline-none focus:bg-yellow-100"
+                  placeholder="Cooldown(s)">
+                <input id="ig-autoreply-max-user" type="number" min="1" step="1"
+                  class="bg-white border-2 border-black px-2 py-2 text-[11px] font-bold outline-none focus:bg-yellow-100"
+                  placeholder="Max/user">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-3">
+              <input id="ig-autoreply-replies-per-comment" type="number" min="1" step="1"
+                class="bg-white border-2 border-black px-2 py-2 text-[11px] font-bold outline-none focus:bg-yellow-100"
+                placeholder="Balasan / komentar">
+              <label class="flex items-center gap-2 text-[11px] font-bold uppercase">
+                <input id="ig-autoreply-followup-enabled" type="checkbox"
+                  class="accent-black w-4 h-4 border-2 border-black">
+                Follow-up Otomatis
+              </label>
+              <input id="ig-autoreply-followup-delay" type="number" min="3" step="1"
+                class="bg-white border-2 border-black px-2 py-2 text-[11px] font-bold outline-none focus:bg-yellow-100"
+                placeholder="Delay follow-up(s)">
+            </div>
+
+            <input id="ig-autoreply-price" type="text"
+              class="w-full bg-white border-2 border-black px-3 py-2 text-xs font-mono outline-none focus:bg-yellow-100"
+              placeholder="Info harga default (contoh: Rp99.000 / pcs)">
+
+            <textarea id="ig-autoreply-templates"
+              class="w-full bg-white border-2 border-black p-2 text-[11px] font-mono h-28 outline-none focus:bg-yellow-100"
+              placeholder="Template per baris format:\nkeyword1,keyword2 | Halo @{username}, harga {price}. Mau checkout?\norder,beli | Siap kak @{username}, lanjut DM ya."></textarea>
+
+            <textarea id="ig-autoreply-followup-templates"
+              class="w-full bg-white border-2 border-black p-2 text-[11px] font-mono h-20 outline-none focus:bg-yellow-100"
+              placeholder="Follow-up template per baris:\nKak @{username}, kalau cocok langsung checkout/DM ya.\nStok berjalan kak @{username}, boleh saya proses sekarang?"></textarea>
+
+            <textarea id="ig-autoreply-system"
+              class="w-full bg-white border-2 border-black p-2 text-[11px] font-mono h-24 outline-none focus:bg-yellow-100"
+              placeholder="System prompt AI Mistral"></textarea>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button id="ig-autoreply-save"
+                class="w-full bg-yellow-300 hover:bg-yellow-200 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                Save Auto Reply
+              </button>
+              <button id="ig-autoreply-runonce"
+                class="w-full bg-cyan-300 hover:bg-cyan-200 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                Run Once
+              </button>
+              <button id="ig-autoreply-refresh"
+                class="w-full bg-white hover:bg-gray-100 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                Refresh Setting
+              </button>
+            </div>
+
+            <div id="ig-autoreply-status"
+              class="bg-white border-2 border-black p-2 text-[11px] font-mono leading-relaxed break-words">
+              Auto-reply belum dikonfigurasi.
+            </div>
+          </div>
+        </section>
+
+        <section class="mb-8 bg-white border-2 border-black p-5 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
+          <div
+            class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 border-b-2 border-black pb-3">
+            <h2 class="text-lg md:text-xl font-black uppercase tracking-wide flex items-center gap-2">
+              <i class="fas fa-comments"></i>
+              Multi Platform Chat
+            </h2>
+            <div id="mp-chat-pill"
+              class="inline-flex items-center gap-2 text-[11px] font-bold uppercase px-3 py-1 border-2 border-black bg-gray-100">
+              <span class="w-2 h-2 rounded-full bg-gray-500"></span>
+              <span>IDLE</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div class="bg-gray-50 border-2 border-black p-3 space-y-2">
+              <label class="text-[11px] font-bold uppercase block">Platform Chat Aktif</label>
+              <select id="mp-platform"
+                class="w-full bg-white border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100">
+                <option value="youtube">YouTube</option>
+                <option value="facebook">Facebook</option>
+              </select>
+              <button id="mp-refresh"
+                class="w-full bg-cyan-300 hover:bg-cyan-200 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                Refresh Chat
+              </button>
+              <p class="text-[10px] font-medium text-gray-600">
+                Pilih platform dulu, lalu monitor komentar realtime dan kirim komentar manual.
+              </p>
+            </div>
+
+            <div class="bg-gray-50 border-2 border-black p-3 space-y-2">
+              <h3 class="text-xs font-black uppercase">YouTube API</h3>
+              <input id="mp-yt-stream-id" type="text"
+                class="w-full bg-white border-2 border-black px-3 py-2 text-[11px] font-mono outline-none focus:bg-yellow-100"
+                placeholder="videoId / streamId">
+              <input id="mp-yt-livechat-id" type="text"
+                class="w-full bg-white border-2 border-black px-3 py-2 text-[11px] font-mono outline-none focus:bg-yellow-100"
+                placeholder="liveChatId (opsional, auto resolve)">
+              <input id="mp-yt-api-key" type="text"
+                class="w-full bg-white border-2 border-black px-3 py-2 text-[11px] font-mono outline-none focus:bg-yellow-100"
+                placeholder="YouTube API Key (opsional)">
+              <input id="mp-yt-access-token" type="password"
+                class="w-full bg-white border-2 border-black px-3 py-2 text-[11px] font-mono outline-none focus:bg-yellow-100"
+                placeholder="YouTube OAuth Access Token (untuk kirim komentar)">
+              <input id="mp-yt-self-channel-id" type="text"
+                class="w-full bg-white border-2 border-black px-3 py-2 text-[11px] font-mono outline-none focus:bg-yellow-100"
+                placeholder="Self Channel ID (opsional, anti auto-reply ke diri sendiri)">
+            </div>
+
+            <div class="bg-gray-50 border-2 border-black p-3 space-y-2">
+              <h3 class="text-xs font-black uppercase">Facebook API</h3>
+              <input id="mp-fb-live-video-id" type="text"
+                class="w-full bg-white border-2 border-black px-3 py-2 text-[11px] font-mono outline-none focus:bg-yellow-100"
+                placeholder="Facebook Live Video ID">
+              <input id="mp-fb-page-token" type="password"
+                class="w-full bg-white border-2 border-black px-3 py-2 text-[11px] font-mono outline-none focus:bg-yellow-100"
+                placeholder="Page Access Token">
+              <input id="mp-fb-page-id" type="text"
+                class="w-full bg-white border-2 border-black px-3 py-2 text-[11px] font-mono outline-none focus:bg-yellow-100"
+                placeholder="Page ID (opsional, anti auto-reply ke diri sendiri)">
+              <button id="mp-settings-save"
+                class="w-full bg-yellow-300 hover:bg-yellow-200 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                Save Chat API Setting
+              </button>
+              <p class="text-[10px] font-medium text-gray-600">
+                Token disimpan lokal di server (`db/multichat.settings.json`).
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div class="bg-gray-50 border-2 border-black p-3">
+              <h3 class="text-xs font-black uppercase mb-2">Komentar Live (YouTube/Facebook)</h3>
+              <div id="mp-comments-list"
+                class="h-48 overflow-y-auto bg-white border-2 border-black p-2 text-[11px] font-mono leading-relaxed">
+                Belum ada komentar live.
+              </div>
+            </div>
+            <div class="bg-gray-50 border-2 border-black p-3 space-y-2">
+              <h3 class="text-xs font-black uppercase">Kirim Komentar Manual</h3>
+              <textarea id="mp-comment-input"
+                class="w-full bg-white border-2 border-black p-2 text-xs font-mono h-32 outline-none focus:bg-yellow-100"
+                placeholder="Tulis komentar untuk platform aktif..."></textarea>
+              <button id="mp-comment-send"
+                class="w-full bg-emerald-400 hover:bg-emerald-300 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                Send Comment
+              </button>
+            </div>
+          </div>
+
+          <div id="mp-chat-status"
+            class="mt-4 bg-gray-50 border-2 border-black p-3 text-[11px] font-mono leading-relaxed break-words">
+            Multi-platform chat belum dikonfigurasi.
+          </div>
+
+          <div class="mt-4 bg-gray-50 border-2 border-black p-3 space-y-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-xs font-black uppercase">Auto Reply AI (YouTube/Facebook)</h3>
+              <div id="mp-autoreply-pill"
+                class="inline-flex items-center gap-2 text-[10px] font-bold uppercase px-2 py-1 border-2 border-black bg-white">
+                <span class="w-2 h-2 rounded-full bg-gray-500"></span>
+                <span>OFF</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-4 gap-3">
+              <label class="flex items-center gap-2 text-[11px] font-bold uppercase">
+                <input id="mp-autoreply-enabled" type="checkbox" class="accent-black w-4 h-4 border-2 border-black">
+                Enable Auto Reply
+              </label>
+              <label class="flex items-center gap-2 text-[11px] font-bold uppercase">
+                <input id="mp-autoreply-platform-youtube" type="checkbox"
+                  class="accent-black w-4 h-4 border-2 border-black" checked>
+                YouTube
+              </label>
+              <label class="flex items-center gap-2 text-[11px] font-bold uppercase">
+                <input id="mp-autoreply-platform-facebook" type="checkbox"
+                  class="accent-black w-4 h-4 border-2 border-black" checked>
+                Facebook
+              </label>
+              <select id="mp-autoreply-mode"
+                class="bg-white border-2 border-black px-2 py-2 text-[11px] font-bold outline-none focus:bg-yellow-100">
+                <option value="template_first">Template + AI Fallback</option>
+                <option value="template_only">Template Only</option>
+                <option value="ai_only">AI Only</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-6 gap-2">
+              <input id="mp-autoreply-cooldown" type="number" min="0" step="1"
+                class="bg-white border-2 border-black px-2 py-2 text-[11px] font-bold outline-none focus:bg-yellow-100"
+                placeholder="Cooldown(s)">
+              <input id="mp-autoreply-max-user" type="number" min="1" step="1"
+                class="bg-white border-2 border-black px-2 py-2 text-[11px] font-bold outline-none focus:bg-yellow-100"
+                placeholder="Max/user">
+              <input id="mp-autoreply-replies-per-comment" type="number" min="1" step="1"
+                class="bg-white border-2 border-black px-2 py-2 text-[11px] font-bold outline-none focus:bg-yellow-100"
+                placeholder="Balasan / komentar">
+              <label class="flex items-center gap-2 text-[11px] font-bold uppercase bg-white border-2 border-black px-2 py-2">
+                <input id="mp-autoreply-followup-enabled" type="checkbox"
+                  class="accent-black w-4 h-4 border-2 border-black">
+                Follow-up
+              </label>
+              <input id="mp-autoreply-followup-delay" type="number" min="3" step="1"
+                class="bg-white border-2 border-black px-2 py-2 text-[11px] font-bold outline-none focus:bg-yellow-100"
+                placeholder="Delay follow-up(s)">
+              <input id="mp-autoreply-poll-ms" type="number" min="3000" step="1000"
+                class="bg-white border-2 border-black px-2 py-2 text-[11px] font-bold outline-none focus:bg-yellow-100"
+                placeholder="Poll ms (contoh 7000)">
+            </div>
+
+            <input id="mp-autoreply-price" type="text"
+              class="w-full bg-white border-2 border-black px-3 py-2 text-xs font-mono outline-none focus:bg-yellow-100"
+              placeholder="Info harga default (contoh: Rp99.000 / pcs)">
+
+            <textarea id="mp-autoreply-templates"
+              class="w-full bg-white border-2 border-black p-2 text-[11px] font-mono h-24 outline-none focus:bg-yellow-100"
+              placeholder="Template per baris format:\nkeyword1,keyword2 | Halo @{username}, untuk harga {price}. Mau checkout?\norder,beli | Siap kak @{username}, lanjut checkout/DM ya."></textarea>
+
+            <textarea id="mp-autoreply-followup-templates"
+              class="w-full bg-white border-2 border-black p-2 text-[11px] font-mono h-20 outline-none focus:bg-yellow-100"
+              placeholder="Follow-up template per baris:\nKak @{username}, kalau cocok langsung checkout/DM ya.\nStok terbatas kak @{username}, mau saya bantu proses sekarang?"></textarea>
+
+            <textarea id="mp-autoreply-system"
+              class="w-full bg-white border-2 border-black p-2 text-[11px] font-mono h-20 outline-none focus:bg-yellow-100"
+              placeholder="System prompt AI Mistral untuk auto-reply YouTube/Facebook"></textarea>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button id="mp-autoreply-save"
+                class="w-full bg-yellow-300 hover:bg-yellow-200 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                Save Auto Reply
+              </button>
+              <button id="mp-autoreply-runonce"
+                class="w-full bg-cyan-300 hover:bg-cyan-200 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                Run Once
+              </button>
+              <button id="mp-autoreply-refresh"
+                class="w-full bg-white hover:bg-gray-100 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                Refresh Setting
+              </button>
+            </div>
+
+            <div id="mp-autoreply-status"
+              class="bg-white border-2 border-black p-2 text-[11px] font-mono leading-relaxed break-words">
+              Auto-reply multi-platform belum dikonfigurasi.
+            </div>
+          </div>
+        </section>
+
+        <section class="mb-8 bg-white border-2 border-black p-5 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
+          <div class="flex items-center justify-between gap-3 mb-3 border-b-2 border-black pb-3">
+            <h2 class="text-lg md:text-xl font-black uppercase tracking-wide flex items-center gap-2">
+              <i class="fas fa-terminal"></i>
+              System Log
+            </h2>
+            <button id="activity-log-clear"
+              class="bg-white hover:bg-gray-100 border-2 border-black font-black text-[10px] px-3 py-1 uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[1px] active:translate-y-[1px] transition-all">
+              Clear
+            </button>
+          </div>
+          <div id="activity-log"
+            class="h-56 overflow-y-auto bg-gray-50 border-2 border-black p-2 text-[11px] font-mono leading-relaxed">
+            <div class="text-center text-gray-500 text-xs py-8">Belum ada log.</div>
+          </div>
+          <p class="mt-2 text-[10px] text-gray-600 font-medium">
+            Log realtime untuk FFmpeg, Instagram live, auto-reply AI, dan multi-platform chat.
+          </p>
+        </section>
+
         <% if (videos.length===0) { %>
           <div
             class="bg-white border-2 border-black border-dashed p-12 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
@@ -197,6 +669,12 @@
                             } else if (fullUrl.startsWith('rtmp://live.twitch.tv/app/')) {
                             type = 'twitch';
                             inputValue = fullUrl.replace('rtmp://live.twitch.tv/app/', '');
+                            } else if (fullUrl.startsWith('rtmps://live-upload.instagram.com:443/rtmp/')) {
+                            type = 'instagram';
+                            inputValue = fullUrl.replace('rtmps://live-upload.instagram.com:443/rtmp/', '');
+                            } else if (fullUrl.startsWith('rtmps://live-upload.instagram.com/rtmp/')) {
+                            type = 'instagram';
+                            inputValue = fullUrl.replace('rtmps://live-upload.instagram.com/rtmp/', '');
                             }
                             %>
                             <div class="flex flex-col gap-1 destination-row mb-2 border-b-2 border-black/10 pb-2">
@@ -208,6 +686,7 @@
                                   <option value="youtube" <%=type==='youtube' ? 'selected' : '' %>>YouTube</option>
                                   <option value="facebook" <%=type==='facebook' ? 'selected' : '' %>>Facebook</option>
                                   <option value="twitch" <%=type==='twitch' ? 'selected' : '' %>>Twitch</option>
+                                  <option value="instagram" <%=type==='instagram' ? 'selected' : '' %>>Instagram</option>
                                 </select>
                                 <div class="relative group/input flex-1">
                                   <div class="absolute left-3 top-2.5 text-black z-20"><i
@@ -231,7 +710,8 @@
                                 class="prefix-display text-[10px] font-mono text-gray-500 pl-1 <%= type === 'custom' ? 'hidden' : 'block' %>">
                                 <%= type !=='custom' ? 'Server: ' + (type==='youtube'
                                   ? 'rtmp://a.rtmp.youtube.com/live2/' : (type==='facebook'
-                                  ? 'rtmps://live-api-s.facebook.com:443/rtmp/' : 'rtmp://live.twitch.tv/app/' )) : ''
+                                  ? 'rtmps://live-api-s.facebook.com:443/rtmp/' : (type==='twitch'
+                                  ? 'rtmp://live.twitch.tv/app/' : 'rtmps://live-upload.instagram.com:443/rtmp/' ))) : ''
                                   %>
                               </div>
                             </div>
@@ -246,6 +726,7 @@
                                       <option value="youtube">YouTube</option>
                                       <option value="facebook">Facebook</option>
                                       <option value="twitch">Twitch</option>
+                                      <option value="instagram">Instagram</option>
                                     </select>
                                     <div class="relative group/input flex-1">
                                       <div class="absolute left-3 top-2.5 text-black z-20"><i
