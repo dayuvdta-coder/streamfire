@@ -102,6 +102,12 @@ NODE_ENV=production
 SESSION_SECRET=isi_random_panjang
 FFMPEG_LIGHT_MODE=1
 YTDLP_TIMEOUT_MS=600000
+WATERMARK_FAST_MODE=1
+# (opsional) kalau mau lebih cepat:
+# WATERMARK_PRESET=ultrafast
+# WATERMARK_MAX_WIDTH=1280
+# WATERMARK_MAX_HEIGHT=720
+# WATERMARK_MAX_FPS=30
 # Jika video YouTube restricted (age/region), isi cookies:
 # YTDLP_COOKIES_FILE=/path/ke/youtube-cookies.txt
 ```
@@ -111,6 +117,7 @@ Kalau env tidak diisi, app tetap jalan dengan default runtime otomatis:
 - `UPLOAD_PATH` fallback ke `./public/uploads`.
 - `FFMPEG_LIGHT_MODE=1` aktif default (auto cap fps/bitrate/resolusi supaya CPU tetap aman).
 - `yt-dlp` dipakai dengan retry/fallback client otomatis untuk mengurangi gagal 403.
+- Watermark dijalankan async background + progress log (lebih aman dari timeout request panjang).
 
 ## Deploy via Docker (Alternatif)
 ```bash

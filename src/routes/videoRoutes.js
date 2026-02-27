@@ -9,6 +9,7 @@ const { getUploadPath } = require('../config/runtimePaths');
 const router = express.Router();
 const FFMPEG_BIN = String(process.env.FFMPEG_PATH || 'ffmpeg').trim() || 'ffmpeg';
 const WATERMARK_JOB_TTL_MS = Math.max(5 * 60 * 1000, Math.min(24 * 60 * 60 * 1000, Number(process.env.WATERMARK_JOB_TTL_MS || (6 * 60 * 60 * 1000))));
+const WATERMARK_PROGRESS_INTERVAL_MS = Math.max(2000, Math.min(60000, Number(process.env.WATERMARK_PROGRESS_INTERVAL_MS || 5000)));
 const watermarkJobs = new Map();
 
 function parseVideoId(raw) {
@@ -97,6 +98,23 @@ function safeUnlink(filePath) {
   fs.promises.unlink(filePath).catch(() => { });
 }
 
+function emitRuntimeLog(message, level = 'info') {
+  const text = String(message || '').trim();
+  if (!text) return;
+
+  try {
+    if (typeof global.addLog === 'function') {
+      global.addLog(text, level === 'error' ? 'error' : (level === 'warn' ? 'warning' : 'info'));
+    }
+  } catch (_) {
+    // Ignore runtime log forwarding errors
+  }
+
+  if (level === 'error') logger.error(text);
+  else if (level === 'warn') logger.warn(text);
+  else logger.info(text);
+}
+
 function clampNumber(value, min, max, fallback) {
   const num = Number(value);
   if (!Number.isFinite(num)) return fallback;
@@ -136,17 +154,95 @@ function escapeDrawText(raw) {
     .replace(/\n/g, ' ');
 }
 
-function runFfmpeg(args) {
+function parseClockToMs(raw) {
+  const m = String(raw || '').trim().match(/^(\d+):(\d+):(\d+(?:\.\d+)?)$/);
+  if (!m) return 0;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  const ss = Number(m[3]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm) || !Number.isFinite(ss)) return 0;
+  return Math.max(0, Math.round(((hh * 3600) + (mm * 60) + ss) * 1000));
+}
+
+function formatDurationMs(rawMs) {
+  const ms = Math.max(0, Number(rawMs) || 0);
+  const totalSeconds = Math.floor(ms / 1000);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return [h, m, s].map((x) => String(x).padStart(2, '0')).join(':');
+}
+
+function runFfmpeg(args, options = {}) {
+  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+  const progressEveryMs = Math.max(1000, Math.min(60000, Number(options.progressEveryMs || WATERMARK_PROGRESS_INTERVAL_MS)));
+
   return new Promise((resolve, reject) => {
     const proc = spawn(FFMPEG_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let stderr = '';
+    let stderrBuf = '';
+    const progress = {
+      outTimeMs: 0,
+      speed: '',
+      lastEmitAt: 0,
+    };
+
+    const emitProgress = (force = false, state = 'continue') => {
+      if (!onProgress) return;
+      const now = Date.now();
+      if (!force && now - progress.lastEmitAt < progressEveryMs) return;
+      progress.lastEmitAt = now;
+      onProgress({
+        outTimeMs: progress.outTimeMs,
+        speed: progress.speed,
+        state,
+      });
+    };
+
+    const consumeLine = (lineRaw) => {
+      const line = String(lineRaw || '').trim();
+      if (!line || !onProgress) return;
+      const sep = line.indexOf('=');
+      if (sep < 1) return;
+      const key = line.slice(0, sep);
+      const value = line.slice(sep + 1);
+
+      if (key === 'out_time') {
+        progress.outTimeMs = Math.max(progress.outTimeMs, parseClockToMs(value));
+        return;
+      }
+      if (key === 'out_time_ms' || key === 'out_time_us') {
+        const micro = Number(value);
+        if (Number.isFinite(micro) && micro >= 0) {
+          progress.outTimeMs = Math.max(progress.outTimeMs, Math.round(micro / 1000));
+        }
+        return;
+      }
+      if (key === 'speed') {
+        progress.speed = value || progress.speed;
+        return;
+      }
+      if (key === 'progress') {
+        emitProgress(value === 'end', value || 'continue');
+      }
+    };
+
     proc.stderr.on('data', (chunk) => {
-      stderr += chunk.toString();
+      const part = chunk.toString();
+      stderr += part;
+      if (!onProgress) return;
+
+      stderrBuf += part;
+      const lines = stderrBuf.split('\n');
+      stderrBuf = lines.pop() || '';
+      for (const line of lines) consumeLine(line);
     });
     proc.on('error', (err) => {
       reject(err);
     });
     proc.on('close', (code) => {
+      if (onProgress && stderrBuf) consumeLine(stderrBuf);
+      emitProgress(true, code === 0 ? 'end' : 'error');
       if (code === 0) return resolve();
       const lines = stderr
         .split('\n')
@@ -164,6 +260,7 @@ async function generateThumbnail(videoFilePath, thumbnailFilePath) {
 }
 
 async function runWatermarkJob({
+  jobId,
   videoId,
   watermarkText,
   position,
@@ -175,6 +272,14 @@ async function runWatermarkJob({
 }) {
   const update = typeof onProgress === 'function' ? onProgress : () => { };
   const uploadPath = getUploadPath();
+  const fastMode = String(process.env.WATERMARK_FAST_MODE || '1') === '1';
+  const preset = String(process.env.WATERMARK_PRESET || (fastMode ? 'ultrafast' : 'veryfast')).trim() || (fastMode ? 'ultrafast' : 'veryfast');
+  const crf = Math.round(clampNumber(process.env.WATERMARK_CRF, 18, 38, fastMode ? 28 : 23));
+  const maxWidth = Math.round(clampNumber(process.env.WATERMARK_MAX_WIDTH, 640, 3840, 1280));
+  const maxHeight = Math.round(clampNumber(process.env.WATERMARK_MAX_HEIGHT, 360, 3840, 720));
+  const maxFps = Math.round(clampNumber(process.env.WATERMARK_MAX_FPS, 15, 60, 30));
+  const audioBitrateK = Math.round(clampNumber(process.env.WATERMARK_AUDIO_BITRATE_K, 64, 320, 96));
+  const threads = Math.round(clampNumber(process.env.WATERMARK_THREADS, 0, 32, 0));
 
   update('Memuat data video...');
   let row;
@@ -203,10 +308,21 @@ async function runWatermarkJob({
   const escapedText = escapeDrawText(watermarkText);
   const pos = resolveWatermarkPosition(position, margin);
   const boxOpacity = clampNumber(opacity * 0.55, 0.2, 0.8, 0.45);
-  const filter = `drawtext=text='${escapedText}':fontsize=${fontSize}:fontcolor=white@${opacity.toFixed(2)}:box=1:boxcolor=black@${boxOpacity.toFixed(2)}:boxborderw=14:x=${pos.x}:y=${pos.y}`;
+  const drawTextFilter = `drawtext=text='${escapedText}':fontsize=${fontSize}:fontcolor=white@${opacity.toFixed(2)}:box=1:boxcolor=black@${boxOpacity.toFixed(2)}:boxborderw=14:x=${pos.x}:y=${pos.y}`;
+  const filterParts = [];
+  if (fastMode) {
+    filterParts.push(`fps=${maxFps}`);
+    filterParts.push(`scale='min(${maxWidth},iw)':'min(${maxHeight},ih)':force_original_aspect_ratio=decrease`);
+  }
+  filterParts.push(drawTextFilter);
+  const filter = filterParts.join(',');
 
   update('Menjalankan FFmpeg...');
+  const ffmpegStartMs = Date.now();
+  emitRuntimeLog(`[Watermark][${jobId || '-'}] start video=${videoId} fastMode=${fastMode ? 1 : 0} preset=${preset} crf=${crf}`);
+
   try {
+    let lastLogLine = '';
     await runFfmpeg([
       '-y',
       '-i',
@@ -220,17 +336,39 @@ async function runWatermarkJob({
       '-c:v',
       'libx264',
       '-preset',
-      'veryfast',
+      preset,
       '-crf',
-      '23',
+      String(crf),
+      '-pix_fmt',
+      'yuv420p',
+      '-threads',
+      String(threads),
       '-c:a',
       'aac',
       '-b:a',
-      '128k',
+      `${audioBitrateK}k`,
       '-movflags',
       '+faststart',
+      '-progress',
+      'pipe:2',
+      '-nostats',
       outputPath,
-    ]);
+    ], {
+      progressEveryMs: WATERMARK_PROGRESS_INTERVAL_MS,
+      onProgress: (p) => {
+        const t = formatDurationMs(p.outTimeMs);
+        const speed = String(p.speed || '').trim() || '?x';
+        const message = `Menjalankan FFmpeg... ${t} @ ${speed}`;
+        update(message);
+        const logLine = `[Watermark][${jobId || '-'}] video=${videoId} time=${t} speed=${speed}`;
+        if (logLine !== lastLogLine) {
+          lastLogLine = logLine;
+          emitRuntimeLog(logLine);
+        }
+      },
+    });
+    const elapsedSec = Math.max(1, Math.round((Date.now() - ffmpegStartMs) / 1000));
+    emitRuntimeLog(`[Watermark][${jobId || '-'}] ffmpeg selesai dalam ${elapsedSec}s untuk video=${videoId}`);
   } catch (err) {
     logger.error(`Watermark ffmpeg failed for video ${videoId}: ${err.message}`);
     safeUnlink(outputPath);
@@ -294,6 +432,7 @@ router.post('/:id/watermark', async (req, res) => {
     watermarkText,
     message: 'Job watermark dimulai...',
   });
+  emitRuntimeLog(`[Watermark][${job.id}] queued untuk video=${videoId}`);
 
   res.status(202).json({
     ok: true,
@@ -307,6 +446,7 @@ router.post('/:id/watermark', async (req, res) => {
     updateWatermarkJob(job.id, { status: 'processing', message: 'Memulai proses watermark...' });
     try {
       const video = await runWatermarkJob({
+        jobId: job.id,
         ...payload,
         onProgress: (message) => {
           updateWatermarkJob(job.id, { status: 'processing', message: String(message || 'Processing...').slice(0, 160) });
@@ -319,12 +459,14 @@ router.post('/:id/watermark', async (req, res) => {
         error: null,
         video,
       });
+      emitRuntimeLog(`[Watermark][${job.id}] done video=${videoId} outputVideoId=${video.id}`);
     } catch (err) {
       updateWatermarkJob(job.id, {
         status: 'failed',
         message: 'Proses watermark gagal.',
         error: err.message || 'Unknown error',
       });
+      emitRuntimeLog(`[Watermark][${job.id}] failed video=${videoId}: ${err.message || 'Unknown error'}`, 'error');
     }
   })();
 });
