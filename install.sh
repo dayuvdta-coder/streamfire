@@ -67,6 +67,15 @@ install_base_packages() {
   esac
 }
 
+ensure_latest_ytdlp() {
+  log_info "Installing latest yt-dlp binary..."
+  local tmp_file="/tmp/yt-dlp.$$"
+  curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp" -o "$tmp_file"
+  install -m 0755 "$tmp_file" /usr/local/bin/yt-dlp
+  rm -f "$tmp_file"
+  yt-dlp --version >/dev/null 2>&1 || log_warn "yt-dlp installed but version check failed."
+}
+
 node_major_version() {
   node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1
 }
@@ -281,6 +290,7 @@ show_result() {
 main() {
   detect_pkg_manager
   install_base_packages
+  ensure_latest_ytdlp
   ensure_nodejs
   ensure_app_user
   sync_repo

@@ -83,6 +83,8 @@ Jika ingin install manual:
 ```bash
 sudo apt update && sudo apt upgrade -y
 sudo apt install ffmpeg yt-dlp git curl -y
+sudo curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp" -o /usr/local/bin/yt-dlp
+sudo chmod +x /usr/local/bin/yt-dlp
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install nodejs -y
 git clone https://github.com/broman0x/streamfire.git
@@ -99,12 +101,16 @@ PUBLIC_IP=IP_VPS_KAMU
 NODE_ENV=production
 SESSION_SECRET=isi_random_panjang
 FFMPEG_LIGHT_MODE=1
+YTDLP_TIMEOUT_MS=600000
+# Jika video YouTube restricted (age/region), isi cookies:
+# YTDLP_COOKIES_FILE=/path/ke/youtube-cookies.txt
 ```
 Kalau env tidak diisi, app tetap jalan dengan default runtime otomatis:
 - `SESSION_SECRET` di-generate otomatis saat boot.
 - `DB_PATH` fallback ke `./db/streamfire.db`.
 - `UPLOAD_PATH` fallback ke `./public/uploads`.
 - `FFMPEG_LIGHT_MODE=1` aktif default (auto cap fps/bitrate/resolusi supaya CPU tetap aman).
+- `yt-dlp` dipakai dengan retry/fallback client otomatis untuk mengurangi gagal 403.
 
 ## Deploy via Docker (Alternatif)
 ```bash

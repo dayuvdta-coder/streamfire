@@ -10,7 +10,10 @@ ENV NODE_ENV=production \
     npm_config_audit=false
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg yt-dlp tini \
+  && apt-get install -y --no-install-recommends ffmpeg curl ca-certificates tini \
+  && curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp" -o /usr/local/bin/yt-dlp \
+  && chmod +x /usr/local/bin/yt-dlp \
+  && /usr/local/bin/yt-dlp --version \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./

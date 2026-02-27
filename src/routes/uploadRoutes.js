@@ -4,10 +4,13 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const ffmpegPath = 'ffmpeg';
-const ytDlpPath = process.env.YT_DLP_BIN || 'yt-dlp';
 const db = require('../models/database');
 const logger = require('../utils/logger');
 const { getUploadPath } = require('../config/runtimePaths');
+const {
+  isHttpUrl,
+  downloadVideoToTemplate,
+} = require('../services/ytDlpService');
 const router = express.Router();
 
 const MAX_UPLOAD_BYTES = 2048 * 1024 * 1024;
@@ -64,10 +67,6 @@ function safeTitle(raw, fallback) {
   const value = String(raw || '').trim();
   if (value) return value.slice(0, 120);
   return String(fallback || 'Downloaded Video').slice(0, 120);
-}
-
-function isHttpUrl(value) {
-  return /^https?:\/\//i.test(String(value || '').trim());
 }
 
 function makeUniqueBaseName(prefix = 'video') {
@@ -157,21 +156,11 @@ router.post('/url', async (req, res) => {
   const outputTemplate = path.join(uploadPath, `${baseName}.%(ext)s`);
 
   try {
-    await runCommand(ytDlpPath, [
-      '--no-playlist',
-      '--no-warnings',
-      '--restrict-filenames',
-      '--no-part',
-      '--max-filesize',
-      '2G',
-      '--merge-output-format',
-      'mp4',
-      '-f',
-      'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b',
-      '-o',
-      outputTemplate,
+    await downloadVideoToTemplate({
       sourceUrl,
-    ]);
+      outputTemplate,
+      maxFileSize: '2G',
+    });
   } catch (err) {
     logger.error(`yt-dlp download failed (${sourceUrl}): ${err.message}`);
     return res.status(500).json({ message: `Download gagal: ${err.message}` });
