@@ -4,6 +4,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     npm_config_update_notifier=false \
     npm_config_fund=false \
     npm_config_audit=false
@@ -14,6 +15,7 @@ RUN apt-get update \
 
 COPY package*.json ./
 RUN npm ci --omit=dev
+RUN npx playwright install --with-deps chromium
 
 COPY . .
 

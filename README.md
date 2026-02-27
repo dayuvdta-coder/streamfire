@@ -113,6 +113,7 @@ docker compose up -d --build
 3. Pilih repo ini, deploy (Dockerfile otomatis dipakai).
 
 Tanpa set env pun app sudah bisa jalan.
+Image Docker sekarang otomatis install Chromium Playwright saat build, jadi fitur login Instagram bisa langsung dipakai tanpa command tambahan.
 Catatan:
 - Tanpa volume persistent, data upload + SQLite akan reset saat redeploy/restart container.
 - Kalau mau data tetap aman, baru tambahkan volume ke `/app/db` dan `/app/public/uploads`.
