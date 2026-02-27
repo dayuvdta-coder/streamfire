@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body {
             font-family: 'Outfit', sans-serif;
@@ -97,6 +98,14 @@
                                                             class="fas fa-play-circle mr-1"></i>
                                                         <%= t.preview %>
                                                     </button>
+                                                    <button
+                                                        data-video-id="<%= video.id %>"
+                                                        data-video-title="<%= video.title || '' %>"
+                                                        data-video-src="/uploads/<%= video.filename %>"
+                                                        onclick="openEditModal(this)"
+                                                        class="text-cyan-700 hover:text-cyan-900">
+                                                        <i class="fas fa-pen-to-square"></i>
+                                                    </button>
                                                     <button onclick="deleteVideo('<%= video.id %>')"
                                                         class="text-red-500 hover:text-red-700">
                                                         <i class="fas fa-trash-alt"></i>
@@ -123,7 +132,114 @@
             </div>
         </div>
 
+        <div id="editModal"
+            class="fixed inset-0 bg-black/80 z-[75] hidden items-center justify-center p-4 overflow-y-auto">
+            <div class="bg-white border-4 border-black w-full max-w-2xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                <div class="flex items-center justify-between px-4 py-3 border-b-2 border-black bg-cyan-300">
+                    <h3 class="text-lg font-black uppercase">Edit Video (Watermark)</h3>
+                    <button onclick="closeEditModal()"
+                        class="w-8 h-8 border-2 border-black bg-white hover:bg-black hover:text-white transition-colors">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="p-4 space-y-4">
+                    <video id="editPreviewVideo" controls class="w-full aspect-video bg-black border-2 border-black"></video>
+
+                    <input type="hidden" id="editVideoId">
+
+                    <div>
+                        <label for="editOutputTitle" class="block text-xs font-black uppercase mb-1">Judul Hasil Video</label>
+                        <input id="editOutputTitle" type="text"
+                            class="w-full border-2 border-black px-3 py-2 text-sm font-bold bg-gray-50 focus:bg-yellow-100 outline-none"
+                            placeholder="Contoh: Produk A - Watermark">
+                    </div>
+
+                    <div>
+                        <label for="editWatermarkText" class="block text-xs font-black uppercase mb-1">Teks Watermark</label>
+                        <input id="editWatermarkText" type="text"
+                            class="w-full border-2 border-black px-3 py-2 text-sm font-bold bg-gray-50 focus:bg-yellow-100 outline-none"
+                            maxlength="100" placeholder="Contoh: @streamingku">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label for="editWatermarkPosition" class="block text-xs font-black uppercase mb-1">Posisi</label>
+                            <select id="editWatermarkPosition"
+                                class="w-full border-2 border-black px-3 py-2 text-sm font-bold bg-gray-50 focus:bg-yellow-100 outline-none">
+                                <option value="top-left">Top Left</option>
+                                <option value="top-right">Top Right</option>
+                                <option value="bottom-left">Bottom Left</option>
+                                <option value="bottom-right" selected>Bottom Right</option>
+                                <option value="center">Center</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="editWatermarkSize" class="block text-xs font-black uppercase mb-1">Ukuran Font</label>
+                            <input id="editWatermarkSize" type="number" min="16" max="96" value="30"
+                                class="w-full border-2 border-black px-3 py-2 text-sm font-bold bg-gray-50 focus:bg-yellow-100 outline-none">
+                        </div>
+                        <div>
+                            <label for="editWatermarkOpacity" class="block text-xs font-black uppercase mb-1">Opacity</label>
+                            <input id="editWatermarkOpacity" type="number" min="0.15" max="1" step="0.05" value="0.85"
+                                class="w-full border-2 border-black px-3 py-2 text-sm font-bold bg-gray-50 focus:bg-yellow-100 outline-none">
+                        </div>
+                    </div>
+                </div>
+                <div class="px-4 py-3 border-t-2 border-black flex flex-col sm:flex-row gap-2">
+                    <button id="editApplyBtn" onclick="applyWatermarkEdit()"
+                        class="flex-1 bg-black text-white border-2 border-black font-black py-2 uppercase hover:bg-gray-800 transition-colors">
+                        Buat Video Watermark
+                    </button>
+                    <button onclick="closeEditModal()"
+                        class="sm:w-40 bg-white border-2 border-black font-black py-2 uppercase hover:bg-gray-100 transition-colors">
+                        Batal
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <script>
+            const editModal = document.getElementById('editModal');
+            const editVideoId = document.getElementById('editVideoId');
+            const editPreviewVideo = document.getElementById('editPreviewVideo');
+            const editOutputTitle = document.getElementById('editOutputTitle');
+            const editWatermarkText = document.getElementById('editWatermarkText');
+            const editWatermarkPosition = document.getElementById('editWatermarkPosition');
+            const editWatermarkSize = document.getElementById('editWatermarkSize');
+            const editWatermarkOpacity = document.getElementById('editWatermarkOpacity');
+            const editApplyBtn = document.getElementById('editApplyBtn');
+
+            async function showAlert(icon, title, text) {
+                if (window.Swal) {
+                    return Swal.fire({
+                        icon,
+                        title,
+                        text,
+                        background: '#1f2937',
+                        color: '#fff'
+                    });
+                }
+                alert(title + '\n' + (text || ''));
+                return Promise.resolve({ isConfirmed: true });
+            }
+
+            async function askConfirm(title, text) {
+                if (window.Swal) {
+                    return Swal.fire({
+                        title,
+                        text,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#ef4444',
+                        cancelButtonColor: '#374151',
+                        confirmButtonText: 'Lanjutkan',
+                        background: '#1f2937',
+                        color: '#fff'
+                    });
+                }
+                return Promise.resolve({ isConfirmed: confirm((title || '') + '\n' + (text || '')) });
+            }
+
             function playVideo(src) {
                 const modal = document.getElementById('videoModal');
                 const video = document.getElementById('modalVideo');
@@ -140,21 +256,112 @@
                 modal.classList.add('hidden');
             }
 
+            function openEditModal(button) {
+                if (!button || !editModal) return;
+                const videoId = String(button.dataset.videoId || '').trim();
+                const videoSrc = String(button.dataset.videoSrc || '').trim();
+                const videoTitle = String(button.dataset.videoTitle || '').trim();
+
+                if (!videoId || !videoSrc) return;
+
+                editVideoId.value = videoId;
+                editPreviewVideo.src = videoSrc;
+                editOutputTitle.value = (videoTitle || 'Video') + ' (Watermark)';
+                if (!editWatermarkText.value.trim()) {
+                    editWatermarkText.value = '@streamingku';
+                }
+                editWatermarkPosition.value = 'bottom-right';
+                editWatermarkSize.value = '30';
+                editWatermarkOpacity.value = '0.85';
+
+                editModal.classList.remove('hidden');
+                editModal.classList.add('flex');
+            }
+
+            function closeEditModal() {
+                if (!editModal) return;
+                if (editPreviewVideo) {
+                    editPreviewVideo.pause();
+                    editPreviewVideo.removeAttribute('src');
+                    editPreviewVideo.load();
+                }
+                editModal.classList.remove('flex');
+                editModal.classList.add('hidden');
+            }
+
+            async function applyWatermarkEdit() {
+                const videoId = Number(editVideoId.value || 0);
+                const watermarkText = String(editWatermarkText.value || '').trim();
+                const outputTitle = String(editOutputTitle.value || '').trim();
+                const position = String(editWatermarkPosition.value || 'bottom-right');
+                const fontSize = Number(editWatermarkSize.value || 30);
+                const opacity = Number(editWatermarkOpacity.value || 0.85);
+
+                if (!videoId) {
+                    await showAlert('error', 'Video tidak valid', 'Pilih video yang mau diedit dulu.');
+                    return;
+                }
+                if (!watermarkText) {
+                    await showAlert('warning', 'Watermark kosong', 'Isi teks watermark terlebih dahulu.');
+                    return;
+                }
+
+                const oldBtnText = editApplyBtn.innerHTML;
+                editApplyBtn.disabled = true;
+                editApplyBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing...';
+
+                try {
+                    const resp = await fetch('/api/video/' + videoId + '/watermark', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            watermarkText,
+                            outputTitle,
+                            position,
+                            fontSize,
+                            opacity
+                        })
+                    });
+                    const data = await resp.json().catch(() => ({}));
+                    if (!resp.ok || data.ok === false) {
+                        throw new Error(data.error || 'Gagal membuat video watermark.');
+                    }
+
+                    await showAlert('success', 'Berhasil', 'Video baru dengan watermark sudah dibuat.');
+                    closeEditModal();
+                    window.location.reload();
+                } catch (err) {
+                    await showAlert('error', 'Proses gagal', err.message || 'Terjadi kesalahan saat edit video.');
+                } finally {
+                    editApplyBtn.disabled = false;
+                    editApplyBtn.innerHTML = oldBtnText;
+                }
+            }
+
             async function deleteVideo(id) {
-                const result = await Swal.fire({
-                    title: 'Delete Video?',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#ef4444',
-                    cancelButtonColor: '#374151',
-                    confirmButtonText: 'Delete',
-                    background: '#1f2937', color: '#fff'
-                });
+                const result = await askConfirm('Hapus video?', 'Video yang dihapus tidak bisa dikembalikan.');
                 if (result.isConfirmed) {
-                    await fetch('/api/video/' + id, { method: 'DELETE' });
+                    const resp = await fetch('/api/video/' + id, { method: 'DELETE' });
+                    const data = await resp.json().catch(() => ({}));
+                    if (!resp.ok || data.ok === false) {
+                        await showAlert('error', 'Gagal hapus', data.message || data.error || 'Tidak bisa menghapus video.');
+                        return;
+                    }
                     window.location.reload();
                 }
             }
+
+            document.getElementById('videoModal')?.addEventListener('click', (event) => {
+                if (event.target.id === 'videoModal') closeVideoModal();
+            });
+            editModal?.addEventListener('click', (event) => {
+                if (event.target.id === 'editModal') closeEditModal();
+            });
+            document.addEventListener('keydown', (event) => {
+                if (event.key !== 'Escape') return;
+                closeVideoModal();
+                closeEditModal();
+            });
         </script>
 
 </body>
