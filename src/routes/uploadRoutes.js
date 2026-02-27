@@ -6,11 +6,12 @@ const { exec } = require('child_process');
 const ffmpegPath = 'ffmpeg';
 const db = require('../models/database');
 const logger = require('../utils/logger');
+const { getUploadPath } = require('../config/runtimePaths');
 const router = express.Router();
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = process.env.UPLOAD_PATH || 'public/uploads';
+    const uploadPath = getUploadPath();
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
@@ -32,7 +33,7 @@ router.post('/local', upload.single('video'), (req, res) => {
 
   const { title } = req.body;
   const filePath = req.file.path;
-  const thumbnailDir = path.join(process.env.UPLOAD_PATH || 'public/uploads', 'thumbnails');
+  const thumbnailDir = path.join(getUploadPath(), 'thumbnails');
   const thumbnailPath = path.join(thumbnailDir, `${req.file.filename}.jpg`);
 
   if (!fs.existsSync(thumbnailDir)) fs.mkdirSync(thumbnailDir, { recursive: true });

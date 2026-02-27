@@ -2,8 +2,9 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/logger');
+const { getDbPath } = require('../config/runtimePaths');
 
-const dbPath = process.env.DB_PATH || './db/streamfire.db';
+const dbPath = getDbPath();
 
 const dbDir = path.dirname(dbPath);
 if (!fs.existsSync(dbDir)) {

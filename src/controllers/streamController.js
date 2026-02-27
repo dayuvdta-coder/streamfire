@@ -2,6 +2,7 @@ const db = require('../models/database');
 const { startStream } = require('../services/ffmpegService');
 const instagramService = require('../services/instagramLiveService');
 const logger = require('../utils/logger');
+const { getUploadPath } = require('../config/runtimePaths');
 
 function startLiveStream(req, res) {
   const { videoId, settings, loop, customRtmp, keepAlive } = req.body;
@@ -17,7 +18,7 @@ function startLiveStream(req, res) {
     }
 
     try {
-      const uploadPath = process.env.UPLOAD_PATH || 'public/uploads';
+      const uploadPath = getUploadPath();
       const videoPath = require('path').join(uploadPath, row.filename);
       const safeSettings = {
         resolution: settings?.resolution || '1280x720',

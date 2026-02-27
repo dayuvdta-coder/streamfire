@@ -5,7 +5,26 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const os = require('os');
 const fs = require('fs');
+const { randomBytes } = require('crypto');
 require('dotenv').config();
+const { ensureRuntimeDirs, getUploadPath, getDbPath } = require('./src/config/runtimePaths');
+
+if (!String(process.env.UPLOAD_PATH || '').trim()) {
+  process.env.UPLOAD_PATH = getUploadPath();
+}
+if (!String(process.env.DB_PATH || '').trim()) {
+  process.env.DB_PATH = getDbPath();
+}
+
+const runtimePaths = ensureRuntimeDirs();
+const UPLOAD_PATH = runtimePaths.uploadPath;
+const DB_DIR = runtimePaths.dbDir;
+
+const SESSION_SECRET = String(process.env.SESSION_SECRET || '').trim() || randomBytes(32).toString('hex');
+if (!String(process.env.SESSION_SECRET || '').trim()) {
+  process.env.SESSION_SECRET = SESSION_SECRET;
+  console.warn('[BOOT] SESSION_SECRET is empty; generated ephemeral secret for this runtime.');
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -16,7 +35,7 @@ const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
 const db = require('./src/models/database');
 const PORT = process.env.PORT || 7575;
-const PUBLIC_IP = process.env.PUBLIC_IP || 'localhost';
+const PUBLIC_IP = process.env.PUBLIC_IP || process.env.RAILWAY_PUBLIC_DOMAIN || 'localhost';
 const ACTIVITY_LOG_LIMIT = Math.max(100, Math.min(2000, Number(process.env.ACTIVITY_LOG_LIMIT || 500)));
 const HTTP_REQUEST_LOGS = String(process.env.HTTP_REQUEST_LOGS ?? (process.env.NODE_ENV === 'production' ? '0' : '1')) === '1';
 const streamRoutes = require('./src/routes/streamRoutes');
@@ -49,14 +68,14 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+app.use('/uploads', express.static(UPLOAD_PATH));
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'src/views'));
 
 app.use(session({
-  store: new SQLiteStore({ db: 'sessions.db', dir: './db' }),
-  secret: process.env.SESSION_SECRET || 'secret_key',
+  store: new SQLiteStore({ db: 'sessions.db', dir: DB_DIR }),
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }

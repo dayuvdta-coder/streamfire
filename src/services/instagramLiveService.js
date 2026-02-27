@@ -5,6 +5,7 @@ const db = require('../models/database');
 const { startStream } = require('./ffmpegService');
 const mistralService = require('./mistralService');
 const logger = require('../utils/logger');
+const { getUploadPath } = require('../config/runtimePaths');
 
 const ALLOWED_AUDIENCE = new Set(['Public', 'Practice', 'Close friends']);
 const DEFAULT_IG_HEADLESS = parseBooleanEnv(process.env.IG_HEADLESS ?? process.env.HEADLESS, true);
@@ -2315,9 +2316,8 @@ class InstagramLiveService {
   }
 
   ensureVideoPath(filename) {
-    const uploadPath = process.env.UPLOAD_PATH || 'public/uploads';
-    const relative = path.join(uploadPath, filename || '');
-    const absolute = path.resolve(process.cwd(), relative);
+    const uploadPath = getUploadPath();
+    const absolute = path.resolve(uploadPath, filename || '');
     if (!fs.existsSync(absolute)) return null;
     return absolute;
   }

@@ -89,19 +89,33 @@ PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci --omit=dev --no-audit --no-fund
 NODE_ENV=production npm start
 ```
 
-## Edit .env
+## Edit .env (Opsional)
 ```bash
 PORT=7575
 PUBLIC_IP=IP_VPS_KAMU
 NODE_ENV=production
 SESSION_SECRET=isi_random_panjang
 ```
+Kalau env tidak diisi, app tetap jalan dengan default runtime otomatis:
+- `SESSION_SECRET` di-generate otomatis saat boot.
+- `DB_PATH` fallback ke `./db/streamfire.db`.
+- `UPLOAD_PATH` fallback ke `./public/uploads`.
 
 ## Deploy via Docker (Alternatif)
 ```bash
 cp .env.example .env
 docker compose up -d --build
 ```
+
+## Deploy Railway (Zero Config)
+1. Push repo ke GitHub.
+2. Di Railway: `New Project` -> `Deploy from GitHub Repo`.
+3. Pilih repo ini, deploy (Dockerfile otomatis dipakai).
+
+Tanpa set env pun app sudah bisa jalan.
+Catatan:
+- Tanpa volume persistent, data upload + SQLite akan reset saat redeploy/restart container.
+- Kalau mau data tetap aman, baru tambahkan volume ke `/app/db` dan `/app/public/uploads`.
 
 ## Dashboard
 ```bash

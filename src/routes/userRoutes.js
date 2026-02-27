@@ -4,10 +4,11 @@ const userController = require('../controllers/userController');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { getUploadPath } = require('../config/runtimePaths');
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const uploadPath = 'public/uploads/avatars';
+        const uploadPath = path.join(getUploadPath(), 'avatars');
         if (!fs.existsSync(uploadPath)) {
             fs.mkdirSync(uploadPath, { recursive: true });
         }
