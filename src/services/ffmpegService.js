@@ -51,16 +51,28 @@ function calcRestartDelayMs(restartCount) {
   return Math.min(RESTART_MAX_DELAY_MS, RESTART_BASE_DELAY_MS * Math.pow(2, factor));
 }
 
-function startStream(videoPath, settings = { bitrate: '2500k', resolution: '1280x720', fps: 30 }, loop = false, customRtmp) {
+function startStream(sourceInput, settings = { bitrate: '2500k', resolution: '1280x720', fps: 30 }, loop = false, customRtmp, options = {}) {
+  const inputIsUrl = Boolean(options && options.inputIsUrl);
+  let inputTarget = String(sourceInput || '').trim();
 
-  let absolutePath = videoPath;
-  if (!fs.existsSync(absolutePath)) {
-    absolutePath = path.resolve(process.cwd(), videoPath);
+  if (!inputTarget) {
+    logger.error('FATAL: Input source is empty.');
+    return null;
   }
 
-  if (!fs.existsSync(absolutePath)) {
-    logger.error(`FATAL: Video missing: ${absolutePath}`);
-    return null;
+  if (!inputIsUrl) {
+    let absolutePath = inputTarget;
+    if (!fs.existsSync(absolutePath)) {
+      absolutePath = path.resolve(process.cwd(), inputTarget);
+    }
+
+    if (!fs.existsSync(absolutePath)) {
+      logger.error(`FATAL: Video missing: ${absolutePath}`);
+      return null;
+    }
+    inputTarget = absolutePath;
+  } else {
+    loop = false;
   }
 
   const bitrate = settings.bitrate || '2500k';
@@ -76,11 +88,12 @@ function startStream(videoPath, settings = { bitrate: '2500k', resolution: '1280
   const vfFilter = `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2`;
 
   const args = [
-    '-re',
+    ...(inputIsUrl ? [] : ['-re']),
     ...(loop ? ['-stream_loop', '-1'] : []),
 
     '-thread_queue_size', '1024',
-    '-i', absolutePath,
+    ...(inputIsUrl ? ['-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5'] : []),
+    '-i', inputTarget,
 
     '-threads', '0',
 
@@ -124,7 +137,7 @@ function startStream(videoPath, settings = { bitrate: '2500k', resolution: '1280
     args.push('-f', 'tee', destinationStr);
   }
 
-  logger.info(`System FFmpeg Start: ${w}x${h} @ ${fps}fps (outputs=${destinations.length})`);
+  logger.info(`System FFmpeg Start: ${w}x${h} @ ${fps}fps (outputs=${destinations.length}, source=${inputIsUrl ? 'url' : 'file'})`);
 
   const proc = spawn(ffmpegBinary, args);
   let lastLog = '';
@@ -203,7 +216,8 @@ function startStream(videoPath, settings = { bitrate: '2500k', resolution: '1280
           current.videoPath,
           current.settings || settings,
           current.loop || false,
-          current.customRtmp || customRtmp
+          current.customRtmp || customRtmp,
+          current.inputOptions || {}
         );
 
         if (!restarted) {

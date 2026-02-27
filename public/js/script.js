@@ -359,6 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     refreshActiveCount();
 
+    initUrlStreamPanel();
     initInstagramPanel();
     initMultiChatPanel();
 });
@@ -490,10 +491,23 @@ window.saveConfig = async (id) => {
 const IG_REFRESH_INTERVAL = 7000;
 const IG_COMMENTS_REFRESH_INTERVAL = 5000;
 const MP_COMMENTS_REFRESH_INTERVAL = 5000;
+const URL_STREAM_REFRESH_INTERVAL = 7000;
 let igStatusTimer = null;
 let igCommentsTimer = null;
 let mpCommentsTimer = null;
+let urlStreamTimer = null;
 let igAutoReplyLoaded = false;
+const urlStreamElements = {
+    source: document.getElementById('url-stream-source'),
+    destinations: document.getElementById('url-stream-destinations'),
+    res: document.getElementById('url-stream-res'),
+    fps: document.getElementById('url-stream-fps'),
+    bitrate: document.getElementById('url-stream-bitrate'),
+    startBtn: document.getElementById('url-stream-start-btn'),
+    stopBtn: document.getElementById('url-stream-stop-btn'),
+    status: document.getElementById('url-stream-status'),
+    pill: document.getElementById('url-stream-pill'),
+};
 const igElements = {
     cookie: document.getElementById('ig-cookie'),
     cookieName: document.getElementById('ig-cookie-name'),
@@ -806,6 +820,131 @@ async function onInstagramCookieDeleteClick() {
     }
 
     Swal.fire({ icon: 'success', title: 'Dihapus', text: `Cookie "${item.label}" sudah dihapus.`, background: '#1f2937', color: '#fff' });
+}
+
+function parseUrlStreamDestinations() {
+    const raw = String(urlStreamElements.destinations?.value || '');
+    return raw
+        .split(/\n|,/g)
+        .map((value) => value.trim())
+        .filter((value) => value && /^rtmps?:\/\//i.test(value));
+}
+
+function renderUrlStreamStatus(status) {
+    if (!urlStreamElements.status) return;
+    const running = Boolean(status?.running);
+    const lines = running
+        ? [
+            `running: yes`,
+            `streamId: ${status.streamId || '-'}`,
+            `provider: ${status.sourceProvider || '-'}`,
+            `pid: ${status.pid || '-'}`,
+            `startTime: ${status.startTime || '-'}`,
+            `sourceUrl: ${status.sourceUrl || '-'}`,
+        ]
+        : ['running: no', 'URL stream offline.'];
+    urlStreamElements.status.innerText = lines.join('\n');
+
+    if (urlStreamElements.pill) {
+        const dot = running ? 'bg-green-500' : 'bg-gray-500';
+        const label = running ? 'ONLINE' : 'OFFLINE';
+        urlStreamElements.pill.innerHTML = `<span class="w-2 h-2 rounded-full ${dot}"></span><span>${label}</span>`;
+    }
+}
+
+async function refreshUrlStreamStatus() {
+    if (!urlStreamElements.status) return;
+    try {
+        const resp = await fetch('/api/stream/url-status');
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+            throw new Error(data.error || 'Failed to load URL stream status');
+        }
+        renderUrlStreamStatus(data.status || {});
+    } catch (err) {
+        renderUrlStreamStatus({ running: false });
+        urlStreamElements.status.innerText = `status error: ${err.message}`;
+    }
+}
+
+async function onUrlStreamStartClick() {
+    const sourceUrl = String(urlStreamElements.source?.value || '').trim();
+    const destinations = parseUrlStreamDestinations();
+
+    if (!sourceUrl) {
+        Swal.fire({ icon: 'warning', title: 'Source URL kosong', text: 'Isi link YouTube atau direct video URL dulu.', background: '#1f2937', color: '#fff' });
+        return;
+    }
+    if (!/^https?:\/\//i.test(sourceUrl)) {
+        Swal.fire({ icon: 'warning', title: 'URL tidak valid', text: 'Gunakan URL http/https yang valid.', background: '#1f2937', color: '#fff' });
+        return;
+    }
+    if (!destinations.length) {
+        Swal.fire({ icon: 'warning', title: 'RTMP kosong', text: 'Isi minimal satu destination RTMP.', background: '#1f2937', color: '#fff' });
+        return;
+    }
+
+    setButtonLoading(urlStreamElements.startBtn, true, 'Starting...', 'Start URL Stream');
+    try {
+        const resp = await fetch('/api/stream/start-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sourceUrl,
+                customRtmp: destinations,
+                settings: {
+                    resolution: urlStreamElements.res?.value || '1280x720',
+                    fps: urlStreamElements.fps?.value || '30',
+                    bitrate: urlStreamElements.bitrate?.value || '3500k',
+                },
+            }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || data.ok === false) {
+            throw new Error(data.error || 'Failed to start URL stream');
+        }
+        await refreshUrlStreamStatus();
+        Swal.fire({
+            icon: 'success',
+            title: 'URL Stream Started',
+            text: `Source ${data.sourceProvider || '-'} sudah berjalan ke RTMP tujuan.`,
+            background: '#1f2937',
+            color: '#fff'
+        });
+    } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Start Failed', text: err.message, background: '#1f2937', color: '#fff' });
+    } finally {
+        setButtonLoading(urlStreamElements.startBtn, false, '', 'Start URL Stream');
+    }
+}
+
+async function onUrlStreamStopClick() {
+    setButtonLoading(urlStreamElements.stopBtn, true, 'Stopping...', 'Stop');
+    try {
+        const resp = await fetch('/api/stream/stop-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || data.ok === false) {
+            throw new Error(data.error || 'Failed to stop URL stream');
+        }
+        await refreshUrlStreamStatus();
+        Swal.fire({ icon: 'success', title: 'Stopped', text: 'URL stream dihentikan.', background: '#1f2937', color: '#fff' });
+    } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Stop Failed', text: err.message, background: '#1f2937', color: '#fff' });
+    } finally {
+        setButtonLoading(urlStreamElements.stopBtn, false, '', 'Stop');
+    }
+}
+
+function initUrlStreamPanel() {
+    if (!urlStreamElements.status) return;
+    urlStreamElements.startBtn?.addEventListener('click', onUrlStreamStartClick);
+    urlStreamElements.stopBtn?.addEventListener('click', onUrlStreamStopClick);
+    refreshUrlStreamStatus();
+    urlStreamTimer = setInterval(refreshUrlStreamStatus, URL_STREAM_REFRESH_INTERVAL);
 }
 
 function initInstagramPanel() {

@@ -124,6 +124,76 @@
         </div>
 
         <section class="mb-8 bg-white border-2 border-black p-5 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
+          <div
+            class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 border-b-2 border-black pb-3">
+            <h2 class="text-lg md:text-xl font-black uppercase tracking-wide flex items-center gap-2">
+              <i class="fab fa-youtube"></i>
+              Quick Stream from URL
+            </h2>
+            <div id="url-stream-pill"
+              class="inline-flex items-center gap-2 text-[11px] font-bold uppercase px-3 py-1 border-2 border-black bg-gray-100">
+              <span class="w-2 h-2 rounded-full bg-gray-500"></span>
+              <span>OFFLINE</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div class="space-y-3 xl:col-span-2">
+              <label class="text-[11px] font-bold uppercase block">Source URL (YouTube / direct video URL)</label>
+              <input id="url-stream-source" type="text"
+                class="w-full bg-gray-50 border-2 border-black px-3 py-2 text-xs font-mono outline-none focus:bg-yellow-100"
+                placeholder="https://www.youtube.com/watch?v=xxxx">
+              <div class="grid grid-cols-3 gap-2">
+                <select id="url-stream-res"
+                  class="bg-gray-50 border-2 border-black px-2 py-2 text-[10px] font-bold outline-none focus:bg-yellow-100">
+                  <option value="1280x720" selected>1280x720</option>
+                  <option value="852x480">852x480</option>
+                  <option value="1920x1080">1920x1080</option>
+                  <option value="720x1280">720x1280</option>
+                </select>
+                <select id="url-stream-fps"
+                  class="bg-gray-50 border-2 border-black px-2 py-2 text-[10px] font-bold outline-none focus:bg-yellow-100">
+                  <option value="30" selected>30 FPS</option>
+                  <option value="24">24 FPS</option>
+                  <option value="60">60 FPS</option>
+                </select>
+                <select id="url-stream-bitrate"
+                  class="bg-gray-50 border-2 border-black px-2 py-2 text-[10px] font-bold outline-none focus:bg-yellow-100">
+                  <option value="2500k">2500k</option>
+                  <option value="3500k" selected>3500k</option>
+                  <option value="4500k">4500k</option>
+                  <option value="6000k">6000k</option>
+                </select>
+              </div>
+              <p class="text-[10px] font-medium text-gray-600">
+                Cocok buat live cepat tanpa upload file lokal. Untuk YouTube diproses via `yt-dlp` + FFmpeg.
+              </p>
+            </div>
+
+            <div class="space-y-3">
+              <label class="text-[11px] font-bold uppercase block">RTMP Destination(s)</label>
+              <textarea id="url-stream-destinations"
+                class="w-full bg-gray-50 border-2 border-black p-2 text-[11px] font-mono h-28 outline-none focus:bg-yellow-100"
+                placeholder="Satu RTMP per baris, contoh:\nrtmp://a.rtmp.youtube.com/live2/xxxx\nrtmps://live-api-s.facebook.com:443/rtmp/xxxx"></textarea>
+              <div class="grid grid-cols-2 gap-2">
+                <button id="url-stream-start-btn"
+                  class="w-full bg-cyan-400 hover:bg-cyan-300 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                  Start URL Stream
+                </button>
+                <button id="url-stream-stop-btn"
+                  class="w-full bg-red-500 text-white hover:bg-red-600 border-2 border-black font-black text-xs py-2 uppercase transition-all">
+                  Stop
+                </button>
+              </div>
+              <div id="url-stream-status"
+                class="bg-gray-50 border-2 border-black p-2 text-[11px] font-mono leading-relaxed break-words">
+                URL stream offline.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="mb-8 bg-white border-2 border-black p-5 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 border-b-2 border-black pb-3">
             <h2 class="text-lg md:text-xl font-black uppercase tracking-wide flex items-center gap-2">
               <i class="fab fa-instagram"></i>

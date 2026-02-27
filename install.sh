@@ -42,7 +42,7 @@ detect_pkg_manager() {
   elif command -v pacman >/dev/null 2>&1; then
     PKG_MANAGER="pacman"
   else
-    log_error "Unsupported Linux distribution. Install Node.js 20+, npm, ffmpeg, git, and curl manually."
+    log_error "Unsupported Linux distribution. Install Node.js 20+, npm, ffmpeg, yt-dlp, git, and curl manually."
     exit 1
   fi
 }
@@ -53,16 +53,16 @@ install_base_packages() {
   case "$PKG_MANAGER" in
   apt)
     apt-get update -qq
-    apt-get install -y -qq ca-certificates curl git ffmpeg gnupg openssl
+    apt-get install -y -qq ca-certificates curl git ffmpeg yt-dlp gnupg openssl
     ;;
   dnf)
-    dnf install -y ca-certificates curl git ffmpeg openssl
+    dnf install -y ca-certificates curl git ffmpeg yt-dlp openssl
     ;;
   yum)
-    yum install -y ca-certificates curl git ffmpeg openssl
+    yum install -y ca-certificates curl git ffmpeg yt-dlp openssl
     ;;
   pacman)
-    pacman -Sy --noconfirm ca-certificates curl git ffmpeg openssl
+    pacman -Sy --noconfirm ca-certificates curl git ffmpeg yt-dlp openssl
     ;;
   esac
 }

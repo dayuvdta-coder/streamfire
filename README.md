@@ -37,6 +37,7 @@
 - Menggunakan FFmpeg sistem → anti crash & memory leak
 - Support multi-platform: YouTube, Twitch, Facebook, TikTok, Custom RTMP
 - Integrasi panel Instagram Live (cookie login + setup key + start/go/end live)
+- Quick Stream dari URL YouTube/direct link (tanpa upload file)
 
 ## Integrasi Instagram Live
 
@@ -79,7 +80,7 @@ curl -fsSL https://raw.githubusercontent.com/broman0x/streamfire/main/install.sh
 Jika ingin install manual:
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install ffmpeg git curl -y
+sudo apt install ffmpeg yt-dlp git curl -y
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install nodejs -y
 git clone https://github.com/broman0x/streamfire.git

@@ -10,7 +10,7 @@ ENV NODE_ENV=production \
     npm_config_audit=false
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg tini \
+  && apt-get install -y --no-install-recommends ffmpeg yt-dlp tini \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./

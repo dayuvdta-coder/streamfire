@@ -1,5 +1,12 @@
 const express = require('express');
-const { startLiveStream, stopLiveStream, saveStreamConfig } = require('../controllers/streamController');
+const {
+  startLiveStream,
+  stopLiveStream,
+  saveStreamConfig,
+  startUrlStream,
+  stopUrlStream,
+  getUrlStreamStatus,
+} = require('../controllers/streamController');
 const { scheduleStream } = require('../services/schedulerService');
 const db = require('../models/database');
 const router = express.Router();
@@ -10,6 +17,9 @@ router.post('/start', (req, res, next) => {
 }, startLiveStream);
 
 router.post('/stop', stopLiveStream);
+router.post('/start-url', startUrlStream);
+router.post('/stop-url', stopUrlStream);
+router.get('/url-status', getUrlStreamStatus);
 
 router.post('/config', saveStreamConfig);
 
