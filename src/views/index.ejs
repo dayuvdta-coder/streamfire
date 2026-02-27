@@ -215,65 +215,49 @@
 
           <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
             <div class="space-y-3">
-              <label class="text-[11px] font-bold uppercase block">Login Instagram (2 Opsi)</label>
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-[11px] font-bold uppercase block">Login Instagram via Cookie</label>
+                <button id="ig-cookie-help-btn" type="button"
+                  class="w-6 h-6 shrink-0 bg-yellow-300 hover:bg-yellow-200 border-2 border-black font-black text-xs leading-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[1px] active:translate-y-[1px] transition-all"
+                  title="Tutorial ambil cookie" aria-label="Tutorial ambil cookie">
+                  !
+                </button>
+              </div>
               <div class="bg-cyan-50 border-2 border-black p-2">
-                <div class="text-[10px] font-black uppercase mb-2">A. Via Cookie</div>
-              <textarea id="ig-cookie"
-                class="w-full bg-gray-50 border-2 border-black p-3 text-xs font-mono h-28 outline-none focus:bg-yellow-100"
-                placeholder="sessionid=...; csrftoken=...;"></textarea>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input id="ig-cookie-name" type="text"
-                  class="w-full bg-gray-50 border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100"
-                  placeholder="Nama cookie (opsional)">
-                <select id="ig-cookie-saved-select"
-                  class="w-full bg-gray-50 border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100">
-                  <option value="">Pilih cookie tersimpan</option>
-                </select>
-              </div>
-              <div class="grid grid-cols-3 gap-2">
-                <button id="ig-cookie-save-btn"
-                  class="w-full bg-yellow-300 hover:bg-yellow-200 border-2 border-black font-black text-[11px] py-2 uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[1px] active:translate-y-[1px] transition-all">
-                  Simpan
-                </button>
-                <button id="ig-cookie-apply-btn"
-                  class="w-full bg-cyan-300 hover:bg-cyan-200 border-2 border-black font-black text-[11px] py-2 uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[1px] active:translate-y-[1px] transition-all">
-                  Pakai
-                </button>
-                <button id="ig-cookie-delete-btn"
-                  class="w-full bg-red-400 hover:bg-red-300 border-2 border-black font-black text-[11px] py-2 uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[1px] active:translate-y-[1px] transition-all">
-                  Hapus
-                </button>
-              </div>
+                <div class="text-[10px] font-black uppercase mb-2">Masukkan Cookie Instagram</div>
+                <textarea id="ig-cookie"
+                  class="w-full bg-gray-50 border-2 border-black p-3 text-xs font-mono h-28 outline-none focus:bg-yellow-100"
+                  placeholder="sessionid=...; csrftoken=...;"></textarea>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input id="ig-cookie-name" type="text"
+                    class="w-full bg-gray-50 border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100"
+                    placeholder="Nama cookie (opsional)">
+                  <select id="ig-cookie-saved-select"
+                    class="w-full bg-gray-50 border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100">
+                    <option value="">Pilih cookie tersimpan</option>
+                  </select>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                  <button id="ig-cookie-save-btn"
+                    class="w-full bg-yellow-300 hover:bg-yellow-200 border-2 border-black font-black text-[11px] py-2 uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[1px] active:translate-y-[1px] transition-all">
+                    Simpan
+                  </button>
+                  <button id="ig-cookie-apply-btn"
+                    class="w-full bg-cyan-300 hover:bg-cyan-200 border-2 border-black font-black text-[11px] py-2 uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[1px] active:translate-y-[1px] transition-all">
+                    Pakai
+                  </button>
+                  <button id="ig-cookie-delete-btn"
+                    class="w-full bg-red-400 hover:bg-red-300 border-2 border-black font-black text-[11px] py-2 uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[1px] active:translate-y-[1px] transition-all">
+                    Hapus
+                  </button>
+                </div>
               </div>
               <button id="ig-login-btn"
                 class="w-full bg-pink-400 hover:bg-pink-300 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
                 Login via Cookie
               </button>
-              <div class="bg-lime-50 border-2 border-black p-2 space-y-2">
-                <div class="text-[10px] font-black uppercase">B. Via Login Instagram</div>
-                <input id="ig-login-username" type="text"
-                  class="w-full bg-white border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100"
-                  placeholder="Username Instagram">
-                <input id="ig-login-password" type="password"
-                  class="w-full bg-white border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100"
-                  placeholder="Password Instagram">
-                <button id="ig-login-account-btn"
-                  class="w-full bg-lime-400 hover:bg-lime-300 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
-                  Login via Instagram
-                </button>
-              </div>
-              <div class="bg-amber-50 border-2 border-black p-2 space-y-2">
-                <div class="text-[10px] font-black uppercase">C. Jika Kena Challenge / OTP</div>
-                <input id="ig-challenge-code" type="text"
-                  class="w-full bg-white border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100"
-                  placeholder="Masukkan kode OTP / verification code">
-                <button id="ig-challenge-verify-btn"
-                  class="w-full bg-amber-300 hover:bg-amber-200 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
-                  Verify OTP
-                </button>
-              </div>
               <p class="text-[10px] font-medium text-gray-600">
-                Opsi cepat: login langsung pakai akun Instagram. Jika akun minta challenge/2FA, lanjutkan dengan opsi cookie.
+                Klik ikon <b>!</b> untuk lihat tutorial cepat cara ambil cookie dari browser.
               </p>
             </div>
 

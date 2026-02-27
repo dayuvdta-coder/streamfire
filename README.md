@@ -46,13 +46,12 @@
 
 Panel Instagram Live sekarang ada langsung di Dashboard:
 
-1. Isi cookie Instagram lalu klik `Login via Cookie`.
-   atau isi username/password lalu klik `Login via Instagram`.
-   Jika kena challenge/2FA/checkpoint, masukkan kode OTP di kolom `Verify OTP`.
-2. Isi judul + audience lalu klik `Setup Live (Get Key)` untuk ambil `streamUrl/streamKey` dari Instagram Live Producer.
-3. Pilih video yang sudah di-upload di StreamFire, atur resolusi/FPS/bitrate, lalu klik `Start IG Stream`.
-4. Saat ingest sudah stabil, klik `Go Live`.
-5. Untuk mengakhiri siaran klik `End Live`.
+1. Klik ikon `!` di panel Instagram untuk lihat tutorial ambil cookie.
+2. Isi cookie Instagram lalu klik `Login via Cookie`.
+3. Isi judul + audience lalu klik `Setup Live (Get Key)` untuk ambil `streamUrl/streamKey` dari Instagram Live Producer.
+4. Pilih video yang sudah di-upload di StreamFire, atur resolusi/FPS/bitrate, lalu klik `Start IG Stream`.
+5. Saat ingest sudah stabil, klik `Go Live`.
+6. Untuk mengakhiri siaran klik `End Live`.
 
 Catatan:
 - Butuh dependency `playwright` (sudah ditambahkan di `package.json`).
@@ -61,7 +60,6 @@ Catatan:
   ```bash
   sudo -u streamfire bash -lc 'cd /opt/streamfire && PLAYWRIGHT_BROWSERS_PATH=/opt/streamfire/.cache/ms-playwright npx playwright install chromium'
   ```
-- Jika login username/password gagal dengan pesan block `429/403`, itu biasanya rate-limit anti-bot dari Instagram (bukan bug form). Solusi paling cepat: tunggu 10-30 menit, ganti IP/proxy, atau pakai `Login via Cookie`.
 - Opsional tuning browser IG via env:
   ```bash
   IG_BROWSER_LOCALE=en-US
@@ -69,7 +67,7 @@ Catatan:
   IG_BROWSER_ACCEPT_LANGUAGE=en-US,en;q=0.9,id;q=0.8
   IG_BROWSER_USER_AGENT=Mozilla/5.0 ...
   ```
-- Untuk Railway/VPS datacenter, login username/password sering kena block IP. Aktifkan proxy di env:
+- Untuk Railway/VPS datacenter, jika halaman Instagram sering kena block IP (`429/403`), aktifkan proxy di env:
   ```bash
   IG_PROXY_URL=http://user:pass@host:port
   # atau pisah:

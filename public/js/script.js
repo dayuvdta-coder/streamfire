@@ -551,16 +551,12 @@ const urlStreamElements = {
 };
 const igElements = {
     cookie: document.getElementById('ig-cookie'),
+    cookieHelpBtn: document.getElementById('ig-cookie-help-btn'),
     cookieName: document.getElementById('ig-cookie-name'),
     cookieSavedSelect: document.getElementById('ig-cookie-saved-select'),
     cookieSaveBtn: document.getElementById('ig-cookie-save-btn'),
     cookieApplyBtn: document.getElementById('ig-cookie-apply-btn'),
     cookieDeleteBtn: document.getElementById('ig-cookie-delete-btn'),
-    loginUsername: document.getElementById('ig-login-username'),
-    loginPassword: document.getElementById('ig-login-password'),
-    loginAccountBtn: document.getElementById('ig-login-account-btn'),
-    challengeCode: document.getElementById('ig-challenge-code'),
-    challengeVerifyBtn: document.getElementById('ig-challenge-verify-btn'),
     title: document.getElementById('ig-title'),
     audience: document.getElementById('ig-audience'),
     streamUrl: document.getElementById('ig-stream-url'),
@@ -1006,21 +1002,8 @@ function initInstagramPanel() {
     igElements.cookieSaveBtn?.addEventListener('click', onInstagramCookieSaveClick);
     igElements.cookieApplyBtn?.addEventListener('click', () => applySelectedInstagramCookieToTextarea({ silent: false }));
     igElements.cookieDeleteBtn?.addEventListener('click', onInstagramCookieDeleteClick);
+    igElements.cookieHelpBtn?.addEventListener('click', onInstagramCookieHelpClick);
     igElements.loginBtn?.addEventListener('click', onInstagramLoginClick);
-    igElements.loginAccountBtn?.addEventListener('click', onInstagramAccountLoginClick);
-    igElements.loginPassword?.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            onInstagramAccountLoginClick();
-        }
-    });
-    igElements.challengeVerifyBtn?.addEventListener('click', onInstagramChallengeVerifyClick);
-    igElements.challengeCode?.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            onInstagramChallengeVerifyClick();
-        }
-    });
     igElements.setupBtn?.addEventListener('click', onInstagramSetupClick);
     igElements.startBtn?.addEventListener('click', onInstagramStartStopClick);
     igElements.goBtn?.addEventListener('click', onInstagramGoLiveClick);
@@ -1510,20 +1493,14 @@ function renderInstagramStatus(status) {
     const ffmpegOnline = Boolean(status.ffmpeg.online || status.ffmpeg.running || status.ffmpeg.restarting);
     const ffmpegRunning = Boolean(status.ffmpeg.running);
     const ffmpegRestarting = Boolean(status.ffmpeg.restarting);
-    const challengePending = Boolean(status.authChallenge?.pending);
-    const challengeLabel = challengePending
-        ? `${status.authChallenge?.type || 'challenge'}${status.authChallenge?.hasCodeInput ? ' (needs OTP)' : ''}`
-        : 'none';
     const lines = [
         `loggedIn: ${status.loggedIn ? 'yes' : 'no'}${status.username ? ` (@${status.username})` : ''}`,
-        `authChallenge: ${challengeLabel}`,
         `liveSetup: ${status.live.streamUrlReady && status.live.streamKeyReady ? 'ready' : 'not-ready'}`,
         `goLiveReady: ${status.live.goLiveReady ? 'yes' : 'no'} | isLive: ${status.live.isLive ? 'yes' : 'no'} | onLiveSurface: ${status.live.onLiveSurface ? 'yes' : 'no'}`,
         `ffmpeg: ${ffmpegRunning ? `ONLINE pid=${status.ffmpeg.pid || '-'} videoId=${status.ffmpeg.videoId || '-'}` : (ffmpegRestarting ? `RECONNECTING attempt=${status.ffmpeg.restartCount || 0}` : 'OFFLINE')}`,
         `output: ${status.ffmpeg.resolution || '-'} @ ${status.ffmpeg.fps || '-'}fps (${status.ffmpeg.bitrate || '-'})`,
         `multiOutput: ${status.ffmpeg.destinationsCount || 0} destination(s)`,
         `chatSource: ${status.chat?.source || '-'} | chatCount: ${status.chat?.count || 0}`,
-        `${challengePending && status.authChallenge?.message ? `challengeMsg: ${status.authChallenge.message}` : ''}`.trim(),
         `${status.live?.pageUrl ? `pageUrl: ${status.live.pageUrl}` : ''}`.trim(),
         `autoReply: ${status.autoReply?.enabled ? `ON (${status.autoReply.mode})` : 'OFF'} | mistral: ${status.autoReply?.mistralConfigured ? 'ready' : 'not-set'}`,
         `${status.ffmpeg.lastError ? `lastError: ${status.ffmpeg.lastError}` : ''}`.trim(),
@@ -1579,6 +1556,31 @@ async function refreshInstagramStatus() {
     }
 }
 
+function onInstagramCookieHelpClick() {
+    Swal.fire({
+        icon: 'info',
+        title: 'Tutorial Ambil Cookie Instagram',
+        html: `
+          <div style="text-align:left;font-size:13px;line-height:1.55">
+            <p style="margin:0 0 10px 0;"><b>Cara cepat dari browser desktop:</b></p>
+            <ol style="margin:0 0 10px 18px;padding:0;">
+              <li>Login Instagram di browser (akun yang mau dipakai live).</li>
+              <li>Tekan <code>F12</code> - buka tab <b>Application</b> (atau <b>Storage</b>).</li>
+              <li>Pilih <b>Cookies</b> - <code>https://www.instagram.com</code>.</li>
+              <li>Copy nilai cookie penting: <code>sessionid</code>, <code>csrftoken</code>, <code>ds_user_id</code>.</li>
+              <li>Gabungkan format: <code>sessionid=...; csrftoken=...; ds_user_id=...;</code></li>
+              <li>Paste ke kolom cookie di panel ini, lalu klik <b>Login via Cookie</b>.</li>
+            </ol>
+            <p style="margin:0;"><b>Tips:</b> simpan cookie pakai tombol <b>Simpan</b> agar bisa dipakai ulang.</p>
+          </div>
+        `,
+        width: 620,
+        confirmButtonText: 'Oke, paham',
+        background: '#1f2937',
+        color: '#fff'
+    });
+}
+
 async function onInstagramLoginClick() {
     if (!igElements.cookie) return;
     let cookie = igElements.cookie.value.trim();
@@ -1601,100 +1603,6 @@ async function onInstagramLoginClick() {
         Swal.fire({ icon: 'error', title: 'Login Failed', text: err.message, background: '#1f2937', color: '#fff' });
     } finally {
         setButtonLoading(igElements.loginBtn, false, '', 'Login via Cookie');
-    }
-}
-
-async function onInstagramAccountLoginClick() {
-    const username = String(igElements.loginUsername?.value || '').trim();
-    const password = String(igElements.loginPassword?.value || '');
-    if (!username || !password) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Login belum lengkap',
-            text: 'Isi username dan password Instagram dulu.',
-            background: '#1f2937',
-            color: '#fff'
-        });
-        return;
-    }
-
-    setButtonLoading(igElements.loginAccountBtn, true, 'Logging in...', 'Login via Instagram');
-    try {
-        const data = await callInstagramApi('/api/instagram/session/login-credentials', { username, password });
-        if (data?.result?.requiresChallenge || data?.result?.challenge?.pending) {
-            await refreshInstagramStatus();
-            Swal.fire({
-                icon: 'info',
-                title: 'Challenge Terdeteksi',
-                text: data?.result?.challenge?.message || 'Masukkan OTP pada kolom Verify OTP lalu klik tombol Verify OTP.',
-                background: '#1f2937',
-                color: '#fff'
-            });
-            return;
-        }
-        const returnedCookie = String(data?.result?.cookie || '').trim();
-        if (returnedCookie && igElements.cookie) {
-            igElements.cookie.value = returnedCookie;
-            saveInstagramCookieDraft();
-            if (igElements.cookieName && !igElements.cookieName.value.trim()) {
-                igElements.cookieName.value = `IG @${String(data?.result?.username || username).replace(/^@/, '')}`;
-            }
-        }
-        if (igElements.loginPassword) igElements.loginPassword.value = '';
-        await refreshInstagramStatus();
-        Swal.fire({
-            icon: 'success',
-            title: 'Login Success',
-            text: `Berhasil login sebagai @${String(data?.result?.username || username).replace(/^@/, '')}.`,
-            background: '#1f2937',
-            color: '#fff'
-        });
-    } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Login Failed', text: err.message, background: '#1f2937', color: '#fff' });
-    } finally {
-        setButtonLoading(igElements.loginAccountBtn, false, '', 'Login via Instagram');
-    }
-}
-
-async function onInstagramChallengeVerifyClick() {
-    const code = String(igElements.challengeCode?.value || '').replace(/\s+/g, '').trim();
-    if (!code) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'OTP kosong',
-            text: 'Isi kode OTP / verification code dulu.',
-            background: '#1f2937',
-            color: '#fff'
-        });
-        return;
-    }
-
-    setButtonLoading(igElements.challengeVerifyBtn, true, 'Verifying...', 'Verify OTP');
-    try {
-        const data = await callInstagramApi('/api/instagram/session/challenge/verify', { code });
-        const returnedCookie = String(data?.result?.cookie || '').trim();
-        if (returnedCookie && igElements.cookie) {
-            igElements.cookie.value = returnedCookie;
-            saveInstagramCookieDraft();
-            if (igElements.cookieName && !igElements.cookieName.value.trim()) {
-                igElements.cookieName.value = `IG @${String(data?.result?.username || '').replace(/^@/, '') || 'verified'}`;
-            }
-        }
-        if (igElements.challengeCode) igElements.challengeCode.value = '';
-        if (igElements.loginPassword) igElements.loginPassword.value = '';
-        await refreshInstagramStatus();
-        Swal.fire({
-            icon: 'success',
-            title: 'OTP Verified',
-            text: `Login berhasil${data?.result?.username ? ` sebagai @${String(data.result.username).replace(/^@/, '')}` : ''}.`,
-            background: '#1f2937',
-            color: '#fff'
-        });
-    } catch (err) {
-        await refreshInstagramStatus();
-        Swal.fire({ icon: 'error', title: 'Verify Failed', text: err.message, background: '#1f2937', color: '#fff' });
-    } finally {
-        setButtonLoading(igElements.challengeVerifyBtn, false, '', 'Verify OTP');
     }
 }
 
