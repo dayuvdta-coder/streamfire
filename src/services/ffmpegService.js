@@ -12,6 +12,15 @@ function asPositiveInt(value, fallback) {
 
 const RESTART_BASE_DELAY_MS = asPositiveInt(process.env.FFMPEG_RESTART_BASE_DELAY_MS, 3000);
 const RESTART_MAX_DELAY_MS = asPositiveInt(process.env.FFMPEG_RESTART_MAX_DELAY_MS, 60000);
+const LIGHT_MODE_ENABLED = String(process.env.FFMPEG_LIGHT_MODE ?? '1') !== '0';
+const LIGHT_MAX_FPS = asPositiveInt(process.env.FFMPEG_LIGHT_MAX_FPS, 30);
+const LIGHT_MAX_BITRATE_K = asPositiveInt(process.env.FFMPEG_LIGHT_MAX_BITRATE_K, 3500);
+const LIGHT_MAX_WIDTH = asPositiveInt(process.env.FFMPEG_LIGHT_MAX_WIDTH, 1280);
+const LIGHT_MAX_HEIGHT = asPositiveInt(process.env.FFMPEG_LIGHT_MAX_HEIGHT, 720);
+const PRESET_LIGHT = String(process.env.FFMPEG_PRESET_LIGHT || 'superfast').trim() || 'superfast';
+const PRESET_NORMAL = String(process.env.FFMPEG_PRESET || 'veryfast').trim() || 'veryfast';
+const AUDIO_BITRATE_LIGHT = String(process.env.FFMPEG_AUDIO_BITRATE_LIGHT || '96k').trim() || '96k';
+const AUDIO_BITRATE_NORMAL = String(process.env.FFMPEG_AUDIO_BITRATE || '128k').trim() || '128k';
 
 function resolveFfmpegBinary() {
   const candidates = [];
@@ -51,6 +60,73 @@ function calcRestartDelayMs(restartCount) {
   return Math.min(RESTART_MAX_DELAY_MS, RESTART_BASE_DELAY_MS * Math.pow(2, factor));
 }
 
+function toEvenNumber(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  const intVal = Math.floor(parsed);
+  return intVal % 2 === 0 ? intVal : intVal - 1;
+}
+
+function parseResolution(value, fallbackW = 1280, fallbackH = 720) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(\d{2,5})x(\d{2,5})$/i);
+  if (!match) {
+    return { width: fallbackW, height: fallbackH };
+  }
+  let width = toEvenNumber(match[1], fallbackW);
+  let height = toEvenNumber(match[2], fallbackH);
+  if (width === 854) width = 852;
+  return { width, height };
+}
+
+function parseBitrateK(value, fallbackK = 2500) {
+  const raw = String(value || '').trim();
+  const numeric = Number(raw.replace(/k$/i, ''));
+  if (!Number.isFinite(numeric) || numeric <= 0) return fallbackK;
+  return Math.floor(numeric);
+}
+
+function normalizeStreamSettings(settings = {}) {
+  const base = parseResolution(settings.resolution || '1280x720', 1280, 720);
+  let width = base.width;
+  let height = base.height;
+  let fps = asPositiveInt(settings.fps, 30);
+  let bitrateK = parseBitrateK(settings.bitrate, 2500);
+  let adjusted = false;
+
+  if (LIGHT_MODE_ENABLED) {
+    const ratio = Math.min(LIGHT_MAX_WIDTH / width, LIGHT_MAX_HEIGHT / height, 1);
+    if (ratio < 1) {
+      width = Math.max(2, toEvenNumber(Math.floor(width * ratio), LIGHT_MAX_WIDTH));
+      height = Math.max(2, toEvenNumber(Math.floor(height * ratio), LIGHT_MAX_HEIGHT));
+      adjusted = true;
+    }
+    if (fps > LIGHT_MAX_FPS) {
+      fps = LIGHT_MAX_FPS;
+      adjusted = true;
+    }
+    if (bitrateK > LIGHT_MAX_BITRATE_K) {
+      bitrateK = LIGHT_MAX_BITRATE_K;
+      adjusted = true;
+    }
+  }
+
+  if (width === 854) width = 852;
+
+  return {
+    width,
+    height,
+    resolution: `${width}x${height}`,
+    fps: String(fps),
+    bitrateK,
+    bitrate: `${bitrateK}k`,
+    preset: LIGHT_MODE_ENABLED ? PRESET_LIGHT : PRESET_NORMAL,
+    audioBitrate: LIGHT_MODE_ENABLED ? AUDIO_BITRATE_LIGHT : AUDIO_BITRATE_NORMAL,
+    x264Params: LIGHT_MODE_ENABLED ? 'bframes=0:ref=1:subme=1:me=dia' : '',
+    adjusted,
+  };
+}
+
 function startStream(sourceInput, settings = { bitrate: '2500k', resolution: '1280x720', fps: 30 }, loop = false, customRtmp, options = {}) {
   const inputIsUrl = Boolean(options && options.inputIsUrl);
   let inputTarget = String(sourceInput || '').trim();
@@ -75,15 +151,12 @@ function startStream(sourceInput, settings = { bitrate: '2500k', resolution: '12
     loop = false;
   }
 
-  const bitrate = settings.bitrate || '2500k';
-  const fps = settings.fps || '30';
-  const bufSize = (parseInt(bitrate) * 2) + 'k';
-
-  let targetRes = settings.resolution || '1280x720';
-  let [w, h] = targetRes.split('x').map(Number);
-  if (w % 2 !== 0) w--;
-  if (h % 2 !== 0) h--;
-  if (w === 854) w = 852;
+  const normalized = normalizeStreamSettings(settings || {});
+  const bitrate = normalized.bitrate;
+  const fps = normalized.fps;
+  const bufSize = `${Math.max(1000, normalized.bitrateK * 2)}k`;
+  const w = normalized.width;
+  const h = normalized.height;
 
   const vfFilter = `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2`;
 
@@ -98,7 +171,7 @@ function startStream(sourceInput, settings = { bitrate: '2500k', resolution: '12
     '-threads', '0',
 
     '-c:v', 'libx264',
-    '-preset', 'veryfast',
+    '-preset', normalized.preset,
     '-tune', 'zerolatency',
     '-profile:v', 'high',
 
@@ -116,8 +189,12 @@ function startStream(sourceInput, settings = { bitrate: '2500k', resolution: '12
     '-c:a', 'aac',
     '-ac', '2',
     '-ar', '44100',
-    '-b:a', '128k',
+    '-b:a', normalized.audioBitrate,
   ];
+
+  if (normalized.x264Params) {
+    args.push('-x264-params', normalized.x264Params);
+  }
 
   const destinations = (Array.isArray(customRtmp) ? customRtmp : [customRtmp])
     .map((value) => String(value || '').trim())
@@ -137,7 +214,12 @@ function startStream(sourceInput, settings = { bitrate: '2500k', resolution: '12
     args.push('-f', 'tee', destinationStr);
   }
 
-  logger.info(`System FFmpeg Start: ${w}x${h} @ ${fps}fps (outputs=${destinations.length}, source=${inputIsUrl ? 'url' : 'file'})`);
+  logger.info(
+    `System FFmpeg Start: ${w}x${h} @ ${fps}fps, ${bitrate} (preset=${normalized.preset}, outputs=${destinations.length}, source=${inputIsUrl ? 'url' : 'file'})`
+  );
+  if (normalized.adjusted) {
+    logger.info(`FFmpeg settings adjusted by light mode: target=${settings?.resolution || '-'} @${settings?.fps || '-'}fps ${settings?.bitrate || '-'} => ${normalized.resolution} @${normalized.fps}fps ${normalized.bitrate}`);
+  }
 
   const proc = spawn(ffmpegBinary, args);
   let lastLog = '';

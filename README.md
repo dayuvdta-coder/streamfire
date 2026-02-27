@@ -38,6 +38,8 @@
 - Support multi-platform: YouTube, Twitch, Facebook, TikTok, Custom RTMP
 - Integrasi panel Instagram Live (cookie login + setup key + start/go/end live)
 - Quick Stream dari URL YouTube/direct link (tanpa upload file)
+- Download video dari link (YouTube dkk via `yt-dlp`) lalu otomatis masuk ke galeri
+- Default mode FFmpeg sudah di-tuning supaya ringan untuk VPS kecil
 
 ## Integrasi Instagram Live
 
@@ -96,11 +98,13 @@ PORT=7575
 PUBLIC_IP=IP_VPS_KAMU
 NODE_ENV=production
 SESSION_SECRET=isi_random_panjang
+FFMPEG_LIGHT_MODE=1
 ```
 Kalau env tidak diisi, app tetap jalan dengan default runtime otomatis:
 - `SESSION_SECRET` di-generate otomatis saat boot.
 - `DB_PATH` fallback ke `./db/streamfire.db`.
 - `UPLOAD_PATH` fallback ke `./public/uploads`.
+- `FFMPEG_LIGHT_MODE=1` aktif default (auto cap fps/bitrate/resolusi supaya CPU tetap aman).
 
 ## Deploy via Docker (Alternatif)
 ```bash

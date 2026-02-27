@@ -85,7 +85,8 @@ if (logClearBtn) {
     });
 }
 
-async function updateStats() {
+async function updateStats(force = false) {
+    if (!force && typeof document !== 'undefined' && document.hidden) return;
     try {
         const res = await fetch('/api/system/stats');
         const data = await res.json();
@@ -119,8 +120,8 @@ async function updateStats() {
 
     }
 }
-setInterval(updateStats, 3000);
-updateStats();
+setInterval(() => updateStats(false), 5000);
+updateStats(true);
 
 
 
@@ -133,6 +134,7 @@ if (btnClose) btnClose.onclick = () => modal.classList.add('hidden');
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('videoInput');
 const fileName = document.getElementById('fileName');
+const uploadUrlInput = document.getElementById('videoUrlInput');
 
 if (dropZone) {
     dropZone.onclick = () => fileInput.click();
@@ -148,14 +150,53 @@ const form = document.getElementById('uploadForm');
 if (form) {
     form.onsubmit = async (e) => {
         e.preventDefault();
+        const titleInput = form.querySelector('input[name="title"]');
+        const title = String(titleInput ? titleInput.value : '').trim();
+        const sourceUrl = String(uploadUrlInput ? uploadUrlInput.value : '').trim();
+        const hasFile = Boolean(fileInput && fileInput.files && fileInput.files.length > 0);
+        const useUrlDownload = Boolean(sourceUrl);
+
+        if (!title) {
+            Swal.fire({ icon: 'warning', title: 'Judul wajib diisi', text: 'Isi judul stream dulu sebelum upload/download.', background: '#1f2937', color: '#fff' });
+            return;
+        }
+
+        if (!useUrlDownload && !hasFile) {
+            Swal.fire({ icon: 'warning', title: 'Sumber video kosong', text: 'Pilih file lokal atau isi link video dulu.', background: '#1f2937', color: '#fff' });
+            return;
+        }
+
         modal.classList.add('hidden');
-        Swal.fire({ title: 'Uploading...', text: 'Processing video...', allowOutsideClick: false, background: '#1f2937', color: '#fff', didOpen: () => Swal.showLoading() });
+        Swal.fire({
+            title: useUrlDownload ? 'Downloading...' : 'Uploading...',
+            text: useUrlDownload ? 'Mengunduh video dari link via yt-dlp...' : 'Processing video...',
+            allowOutsideClick: false,
+            background: '#1f2937',
+            color: '#fff',
+            didOpen: () => Swal.showLoading()
+        });
         try {
-            const res = await fetch('/api/upload/local', { method: 'POST', body: new FormData(form) });
-            if (res.ok) {
-                window.location.reload();
-            } else throw new Error('Upload Failed');
-        } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message, background: '#1f2937', color: '#fff' }); }
+            let res;
+            if (useUrlDownload) {
+                res = await fetch('/api/upload/url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, url: sourceUrl })
+                });
+            } else {
+                res = await fetch('/api/upload/local', { method: 'POST', body: new FormData(form) });
+            }
+
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(payload.message || payload.error || (useUrlDownload ? 'Download Failed' : 'Upload Failed'));
+            }
+
+            window.location.reload();
+        } catch (err) {
+            modal.classList.remove('hidden');
+            Swal.fire({ icon: 'error', title: 'Error', text: err.message, background: '#1f2937', color: '#fff' });
+        }
     };
 }
 
@@ -488,10 +529,10 @@ window.saveConfig = async (id) => {
     }
 };
 
-const IG_REFRESH_INTERVAL = 7000;
-const IG_COMMENTS_REFRESH_INTERVAL = 5000;
-const MP_COMMENTS_REFRESH_INTERVAL = 5000;
-const URL_STREAM_REFRESH_INTERVAL = 7000;
+const IG_REFRESH_INTERVAL = 10000;
+const IG_COMMENTS_REFRESH_INTERVAL = 8000;
+const MP_COMMENTS_REFRESH_INTERVAL = 8000;
+const URL_STREAM_REFRESH_INTERVAL = 10000;
 let igStatusTimer = null;
 let igCommentsTimer = null;
 let mpCommentsTimer = null;
@@ -944,7 +985,9 @@ function initUrlStreamPanel() {
     urlStreamElements.startBtn?.addEventListener('click', onUrlStreamStartClick);
     urlStreamElements.stopBtn?.addEventListener('click', onUrlStreamStopClick);
     refreshUrlStreamStatus();
-    urlStreamTimer = setInterval(refreshUrlStreamStatus, URL_STREAM_REFRESH_INTERVAL);
+    urlStreamTimer = setInterval(() => {
+        if (!document.hidden) refreshUrlStreamStatus();
+    }, URL_STREAM_REFRESH_INTERVAL);
 }
 
 function initInstagramPanel() {
@@ -972,8 +1015,12 @@ function initInstagramPanel() {
     refreshInstagramStatus();
     refreshInstagramComments();
     refreshInstagramAutoReplySettings();
-    igStatusTimer = setInterval(refreshInstagramStatus, IG_REFRESH_INTERVAL);
-    igCommentsTimer = setInterval(refreshInstagramComments, IG_COMMENTS_REFRESH_INTERVAL);
+    igStatusTimer = setInterval(() => {
+        if (!document.hidden) refreshInstagramStatus();
+    }, IG_REFRESH_INTERVAL);
+    igCommentsTimer = setInterval(() => {
+        if (!document.hidden) refreshInstagramComments();
+    }, IG_COMMENTS_REFRESH_INTERVAL);
 }
 
 function getMultiChatPlatform() {
@@ -1271,7 +1318,9 @@ function initMultiChatPanel() {
     refreshMultiChatSettings();
     refreshMultiChatAutoReplySettings();
     refreshMultiChatComments();
-    mpCommentsTimer = setInterval(refreshMultiChatComments, MP_COMMENTS_REFRESH_INTERVAL);
+    mpCommentsTimer = setInterval(() => {
+        if (!document.hidden) refreshMultiChatComments();
+    }, MP_COMMENTS_REFRESH_INTERVAL);
 }
 
 async function callInstagramApi(url, body) {

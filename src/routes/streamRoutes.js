@@ -11,10 +11,7 @@ const { scheduleStream } = require('../services/schedulerService');
 const db = require('../models/database');
 const router = express.Router();
 
-router.post('/start', (req, res, next) => {
-  console.log('Stream Start Request Received:', req.body);
-  next();
-}, startLiveStream);
+router.post('/start', startLiveStream);
 
 router.post('/stop', stopLiveStream);
 router.post('/start-url', startUrlStream);
