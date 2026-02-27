@@ -521,6 +521,100 @@ class InstagramLiveService {
     };
   }
 
+  async dismissInstagramDialogsForLogin() {
+    const patterns = [
+      /Allow all cookies|Accept all cookies|Terima semua cookie|Izinkan semua cookie/i,
+      /Only allow essential cookies|Decline optional cookies|Hanya cookie penting/i,
+      /Not now|Nanti|Lain kali/i,
+    ];
+    for (const pattern of patterns) {
+      try {
+        const clicked = await this.clickByTextRegex(pattern);
+        if (clicked) {
+          await this.page.waitForTimeout(450);
+        }
+      } catch (_) {
+        // ignore optional popups
+      }
+    }
+  }
+
+  async openInstagramLoginPage() {
+    const urls = [
+      'https://www.instagram.com/accounts/login/?next=%2F&source=omni_redirect',
+      'https://www.instagram.com/accounts/login/',
+      'https://www.instagram.com/',
+    ];
+    let lastErr = null;
+    for (const url of urls) {
+      try {
+        await this.gotoInstagram(url);
+        return;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr || new Error('Gagal membuka halaman login Instagram.');
+  }
+
+  async fillFirstVisibleInput(selectors, value, maxCandidates = 10) {
+    await this.ensurePage();
+    const locator = this.page.locator(selectors);
+    const count = Math.min(await locator.count(), Math.max(1, Number(maxCandidates) || 10));
+    for (let i = 0; i < count; i += 1) {
+      const field = locator.nth(i);
+      let visible = false;
+      try {
+        visible = await field.isVisible();
+      } catch (_) {
+        visible = false;
+      }
+      if (!visible) continue;
+
+      let editable = true;
+      try {
+        editable = await field.isEditable();
+      } catch (_) {
+        editable = true;
+      }
+      if (!editable) continue;
+
+      try {
+        await field.click({ timeout: 4000 });
+      } catch (_) {
+        // continue fill attempt even if click fails
+      }
+
+      try {
+        await field.fill(String(value || ''), { timeout: 7000 });
+        return true;
+      } catch (_) {
+        // try next candidate
+      }
+    }
+    return false;
+  }
+
+  async getLoginDebugHint() {
+    await this.ensurePage();
+    try {
+      const info = await this.page.evaluate(() => {
+        const path = String(location.pathname || '');
+        const title = String(document.title || '').trim();
+        const body = String(document.body?.innerText || '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 160);
+        const hasUser = Boolean(document.querySelector('input[name="username"], input[autocomplete="username"], input[name="email"]'));
+        const hasPass = Boolean(document.querySelector('input[name="password"], input[autocomplete="current-password"], input[type="password"]'));
+        return { path, title, body, hasUser, hasPass };
+      });
+      return `path=${info.path || '-'} title="${info.title || '-'}" userField=${info.hasUser ? 'yes' : 'no'} passField=${info.hasPass ? 'yes' : 'no'} text="${info.body || '-'}"`;
+    } catch (_) {
+      return `url=${String(this.page?.url?.() || '-')}`;
+    }
+  }
+
   hasRecentNetworkComments(recentMs = IG_CHAT_NETWORK_RECENT_MS) {
     const value = this.state.chat.networkLastAt;
     if (!value) return false;
@@ -1630,18 +1724,135 @@ class InstagramLiveService {
         throw new Error('Password Instagram wajib diisi.');
       }
 
-      await this.gotoInstagram('https://www.instagram.com/accounts/login/');
+      await this.openInstagramLoginPage();
       await this.page.waitForTimeout(900);
+      await this.dismissInstagramDialogsForLogin();
 
-      const usernameSelector = 'input[name="username"], input[autocomplete="username"]';
-      const passwordSelector = 'input[name="password"], input[type="password"]';
-      await this.page.locator(usernameSelector).first().fill(safeUsername, { timeout: 10000 });
-      await this.page.locator(passwordSelector).first().fill(safePassword, { timeout: 10000 });
+      const authBeforeFill = await this.detectLoginStateAndUsername().catch(() => null);
+      if (authBeforeFill?.loggedIn) {
+        const cookie = await this.exportInstagramCookieString();
+        if (!cookie || !cookie.includes('=')) {
+          throw new Error('Sesi sudah login, tapi cookie Instagram tidak terbaca.');
+        }
+        this.applyAuthenticatedState({ auth: authBeforeFill, cookie, source: 'Instagram account' });
+        return {
+          loggedIn: this.state.loggedIn,
+          username: this.state.username,
+          pageUrl: authBeforeFill.pageUrl,
+          cookie,
+        };
+      }
 
-      const loginButton = this.page.locator('button[type="submit"], div[role="button"]').filter({ hasText: /log in|masuk/i }).first();
-      await loginButton.click({ timeout: 10000 });
+      const challengeBeforeFill = await this.detectAuthChallengeState().catch(() => ({ pending: false }));
+      if (challengeBeforeFill && challengeBeforeFill.pending) {
+        this.setAuthChallenge({
+          ...challengeBeforeFill,
+          username: safeUsername,
+        });
+        this.addLog(`Instagram challenge detected before credentials submit (${challengeBeforeFill.type || 'challenge'}).`);
+        return {
+          requiresChallenge: true,
+          challenge: this.getPublicAuthChallengeState(),
+        };
+      }
+
+      const usernameSelector = [
+        'input[name="username"]',
+        'input[autocomplete="username"]',
+        'input[name="email"]',
+        'input[aria-label*="username" i]',
+        'input[aria-label*="phone number" i]',
+        'form input[type="text"]',
+        'form input[type="email"]',
+      ].join(', ');
+      const passwordSelector = [
+        'input[name="password"]',
+        'input[autocomplete="current-password"]',
+        'form input[type="password"]',
+        'input[type="password"]',
+      ].join(', ');
+
+      let filled = false;
+      for (let attempt = 1; attempt <= 4; attempt += 1) {
+        const userOk = await this.fillFirstVisibleInput(usernameSelector, safeUsername, 12);
+        const passOk = await this.fillFirstVisibleInput(passwordSelector, safePassword, 12);
+        if (userOk && passOk) {
+          filled = true;
+          break;
+        }
+
+        const challengeState = await this.detectAuthChallengeState().catch(() => ({ pending: false }));
+        if (challengeState && challengeState.pending) {
+          this.setAuthChallenge({
+            ...challengeState,
+            username: safeUsername,
+          });
+          this.addLog(`Instagram challenge detected while waiting login form (${challengeState.type || 'challenge'}).`);
+          return {
+            requiresChallenge: true,
+            challenge: this.getPublicAuthChallengeState(),
+          };
+        }
+
+        const authProbe = await this.detectLoginStateAndUsername().catch(() => null);
+        if (authProbe?.loggedIn) {
+          const cookie = await this.exportInstagramCookieString();
+          if (!cookie || !cookie.includes('=')) {
+            throw new Error('Sesi login terdeteksi, tapi cookie Instagram tidak terbaca.');
+          }
+          this.applyAuthenticatedState({ auth: authProbe, cookie, source: 'Instagram account' });
+          return {
+            loggedIn: this.state.loggedIn,
+            username: this.state.username,
+            pageUrl: authProbe.pageUrl,
+            cookie,
+          };
+        }
+
+        try {
+          await this.clickByTextRegex(/log in|masuk/i);
+        } catch (_) {
+          // ignore fallback click
+        }
+        await this.page.waitForTimeout(1200);
+        await this.dismissInstagramDialogsForLogin();
+
+        if (attempt === 2) {
+          await this.openInstagramLoginPage();
+          await this.page.waitForTimeout(800);
+        }
+      }
+
+      if (!filled) {
+        const hint = await this.getLoginDebugHint();
+        throw new Error(`Form login Instagram tidak ditemukan. ${hint}`);
+      }
+
+      let submitted = false;
+      try {
+        const loginButton = this.page
+          .locator('button[type="submit"], form button, div[role="button"]')
+          .filter({ hasText: /log in|masuk/i })
+          .first();
+        await loginButton.click({ timeout: 12000 });
+        submitted = true;
+      } catch (_) {
+        submitted = false;
+      }
+      if (!submitted) {
+        try {
+          await this.page.keyboard.press('Enter');
+          submitted = true;
+        } catch (_) {
+          submitted = false;
+        }
+      }
+      if (!submitted) {
+        throw new Error('Tombol submit login Instagram tidak bisa diklik.');
+      }
 
       await this.page.waitForTimeout(5000);
+      await this.dismissInstagramDialogsForLogin();
 
       try {
         await this.clickByTextRegex(/Not now|Nanti|Lain kali/i);
