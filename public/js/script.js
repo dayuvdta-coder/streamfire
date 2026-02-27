@@ -559,6 +559,8 @@ const igElements = {
     loginUsername: document.getElementById('ig-login-username'),
     loginPassword: document.getElementById('ig-login-password'),
     loginAccountBtn: document.getElementById('ig-login-account-btn'),
+    challengeCode: document.getElementById('ig-challenge-code'),
+    challengeVerifyBtn: document.getElementById('ig-challenge-verify-btn'),
     title: document.getElementById('ig-title'),
     audience: document.getElementById('ig-audience'),
     streamUrl: document.getElementById('ig-stream-url'),
@@ -1010,6 +1012,13 @@ function initInstagramPanel() {
         if (event.key === 'Enter') {
             event.preventDefault();
             onInstagramAccountLoginClick();
+        }
+    });
+    igElements.challengeVerifyBtn?.addEventListener('click', onInstagramChallengeVerifyClick);
+    igElements.challengeCode?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            onInstagramChallengeVerifyClick();
         }
     });
     igElements.setupBtn?.addEventListener('click', onInstagramSetupClick);
@@ -1501,14 +1510,20 @@ function renderInstagramStatus(status) {
     const ffmpegOnline = Boolean(status.ffmpeg.online || status.ffmpeg.running || status.ffmpeg.restarting);
     const ffmpegRunning = Boolean(status.ffmpeg.running);
     const ffmpegRestarting = Boolean(status.ffmpeg.restarting);
+    const challengePending = Boolean(status.authChallenge?.pending);
+    const challengeLabel = challengePending
+        ? `${status.authChallenge?.type || 'challenge'}${status.authChallenge?.hasCodeInput ? ' (needs OTP)' : ''}`
+        : 'none';
     const lines = [
         `loggedIn: ${status.loggedIn ? 'yes' : 'no'}${status.username ? ` (@${status.username})` : ''}`,
+        `authChallenge: ${challengeLabel}`,
         `liveSetup: ${status.live.streamUrlReady && status.live.streamKeyReady ? 'ready' : 'not-ready'}`,
         `goLiveReady: ${status.live.goLiveReady ? 'yes' : 'no'} | isLive: ${status.live.isLive ? 'yes' : 'no'} | onLiveSurface: ${status.live.onLiveSurface ? 'yes' : 'no'}`,
         `ffmpeg: ${ffmpegRunning ? `ONLINE pid=${status.ffmpeg.pid || '-'} videoId=${status.ffmpeg.videoId || '-'}` : (ffmpegRestarting ? `RECONNECTING attempt=${status.ffmpeg.restartCount || 0}` : 'OFFLINE')}`,
         `output: ${status.ffmpeg.resolution || '-'} @ ${status.ffmpeg.fps || '-'}fps (${status.ffmpeg.bitrate || '-'})`,
         `multiOutput: ${status.ffmpeg.destinationsCount || 0} destination(s)`,
         `chatSource: ${status.chat?.source || '-'} | chatCount: ${status.chat?.count || 0}`,
+        `${challengePending && status.authChallenge?.message ? `challengeMsg: ${status.authChallenge.message}` : ''}`.trim(),
         `${status.live?.pageUrl ? `pageUrl: ${status.live.pageUrl}` : ''}`.trim(),
         `autoReply: ${status.autoReply?.enabled ? `ON (${status.autoReply.mode})` : 'OFF'} | mistral: ${status.autoReply?.mistralConfigured ? 'ready' : 'not-set'}`,
         `${status.ffmpeg.lastError ? `lastError: ${status.ffmpeg.lastError}` : ''}`.trim(),
@@ -1606,6 +1621,17 @@ async function onInstagramAccountLoginClick() {
     setButtonLoading(igElements.loginAccountBtn, true, 'Logging in...', 'Login via Instagram');
     try {
         const data = await callInstagramApi('/api/instagram/session/login-credentials', { username, password });
+        if (data?.result?.requiresChallenge || data?.result?.challenge?.pending) {
+            await refreshInstagramStatus();
+            Swal.fire({
+                icon: 'info',
+                title: 'Challenge Terdeteksi',
+                text: data?.result?.challenge?.message || 'Masukkan OTP pada kolom Verify OTP lalu klik tombol Verify OTP.',
+                background: '#1f2937',
+                color: '#fff'
+            });
+            return;
+        }
         const returnedCookie = String(data?.result?.cookie || '').trim();
         if (returnedCookie && igElements.cookie) {
             igElements.cookie.value = returnedCookie;
@@ -1627,6 +1653,48 @@ async function onInstagramAccountLoginClick() {
         Swal.fire({ icon: 'error', title: 'Login Failed', text: err.message, background: '#1f2937', color: '#fff' });
     } finally {
         setButtonLoading(igElements.loginAccountBtn, false, '', 'Login via Instagram');
+    }
+}
+
+async function onInstagramChallengeVerifyClick() {
+    const code = String(igElements.challengeCode?.value || '').replace(/\s+/g, '').trim();
+    if (!code) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'OTP kosong',
+            text: 'Isi kode OTP / verification code dulu.',
+            background: '#1f2937',
+            color: '#fff'
+        });
+        return;
+    }
+
+    setButtonLoading(igElements.challengeVerifyBtn, true, 'Verifying...', 'Verify OTP');
+    try {
+        const data = await callInstagramApi('/api/instagram/session/challenge/verify', { code });
+        const returnedCookie = String(data?.result?.cookie || '').trim();
+        if (returnedCookie && igElements.cookie) {
+            igElements.cookie.value = returnedCookie;
+            saveInstagramCookieDraft();
+            if (igElements.cookieName && !igElements.cookieName.value.trim()) {
+                igElements.cookieName.value = `IG @${String(data?.result?.username || '').replace(/^@/, '') || 'verified'}`;
+            }
+        }
+        if (igElements.challengeCode) igElements.challengeCode.value = '';
+        if (igElements.loginPassword) igElements.loginPassword.value = '';
+        await refreshInstagramStatus();
+        Swal.fire({
+            icon: 'success',
+            title: 'OTP Verified',
+            text: `Login berhasil${data?.result?.username ? ` sebagai @${String(data.result.username).replace(/^@/, '')}` : ''}.`,
+            background: '#1f2937',
+            color: '#fff'
+        });
+    } catch (err) {
+        await refreshInstagramStatus();
+        Swal.fire({ icon: 'error', title: 'Verify Failed', text: err.message, background: '#1f2937', color: '#fff' });
+    } finally {
+        setButtonLoading(igElements.challengeVerifyBtn, false, '', 'Verify OTP');
     }
 }
 

@@ -375,6 +375,15 @@ class InstagramLiveService {
       cookieString: '',
       loggedIn: false,
       username: null,
+      authChallenge: {
+        pending: false,
+        type: null,
+        pageUrl: null,
+        hasCodeInput: false,
+        message: null,
+        username: null,
+        updatedAt: null,
+      },
       live: {
         title: '',
         audience: 'Public',
@@ -425,6 +434,91 @@ class InstagramLiveService {
     if (typeof global.addLog === 'function') {
       global.addLog(safe, type === 'error' ? 'error' : type === 'warn' ? 'warning' : 'info');
     }
+  }
+
+  clearAuthChallenge() {
+    this.state.authChallenge = {
+      pending: false,
+      type: null,
+      pageUrl: null,
+      hasCodeInput: false,
+      message: null,
+      username: null,
+      updatedAt: null,
+    };
+  }
+
+  setAuthChallenge(input = {}) {
+    this.state.authChallenge = {
+      pending: true,
+      type: String(input.type || 'challenge').trim() || 'challenge',
+      pageUrl: String(input.pageUrl || '').trim() || null,
+      hasCodeInput: Boolean(input.hasCodeInput),
+      message: String(input.message || 'Instagram butuh verifikasi tambahan.').trim(),
+      username: String(input.username || this.state.username || '').replace(/^@/, '').trim() || null,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  getPublicAuthChallengeState() {
+    const x = this.state.authChallenge || {};
+    return {
+      pending: Boolean(x.pending),
+      type: x.type || null,
+      pageUrl: x.pageUrl || null,
+      hasCodeInput: Boolean(x.hasCodeInput),
+      message: x.message || null,
+      username: x.username || null,
+      updatedAt: x.updatedAt || null,
+    };
+  }
+
+  async detectAuthChallengeState() {
+    await this.ensurePage();
+    const pageUrl = String(this.page?.url?.() || '');
+
+    const probe = await this.page.evaluate(() => {
+      const path = String(location.pathname || '');
+      const text = String(document.body?.innerText || '').slice(0, 12000).toLowerCase();
+      const codeInput = document.querySelector(
+        'input[name*="code" i], input[name="verificationCode"], input[name="security_code"], input[autocomplete="one-time-code"], input[inputmode="numeric"], input[type="tel"]'
+      );
+      const needsChallengeByPath = /two_factor|challenge|checkpoint/i.test(path);
+      const needsChallengeByText = /security code|verification code|two-factor|authentication app|kode keamanan|masukkan kode|check your login/i.test(text);
+      const needsChallenge = needsChallengeByPath || needsChallengeByText;
+
+      let type = 'challenge';
+      if (/two_factor|two-factor|authentication app|verification code|kode keamanan|masukkan kode/i.test(`${path} ${text}`)) {
+        type = 'otp';
+      } else if (/checkpoint|challenge/i.test(`${path} ${text}`)) {
+        type = 'checkpoint';
+      }
+
+      return {
+        needsChallenge,
+        hasCodeInput: Boolean(codeInput),
+        type,
+      };
+    });
+
+    if (!probe || !probe.needsChallenge) {
+      return {
+        pending: false,
+      };
+    }
+
+    const type = probe.type === 'otp' ? 'otp' : 'checkpoint';
+    const message = probe.hasCodeInput
+      ? 'Instagram minta kode verifikasi. Isi OTP lalu klik Verify OTP.'
+      : 'Instagram minta verifikasi tambahan. Lanjutkan verifikasi di challenge page.';
+
+    return {
+      pending: true,
+      type,
+      pageUrl: pageUrl || null,
+      hasCodeInput: Boolean(probe.hasCodeInput),
+      message,
+    };
   }
 
   hasRecentNetworkComments(recentMs = IG_CHAT_NETWORK_RECENT_MS) {
@@ -1479,6 +1573,7 @@ class InstagramLiveService {
   }
 
   applyAuthenticatedState({ auth, cookie, source = 'Cookie' }) {
+    this.clearAuthChallenge();
     this.state.cookieString = cookie;
     this.state.loggedIn = true;
     this.state.username = auth.username || null;
@@ -1560,10 +1655,21 @@ class InstagramLiveService {
         this.state.loggedIn = false;
         this.state.username = null;
 
-        const url = String(auth.pageUrl || this.page?.url?.() || '');
-        if (/two_factor|challenge|checkpoint/i.test(url)) {
-          throw new Error(`Instagram minta verifikasi tambahan (${url}). Selesaikan challenge dulu lalu pakai Login via Cookie.`);
+        const challenge = await this.detectAuthChallengeState().catch(() => ({ pending: false }));
+        if (challenge && challenge.pending) {
+          this.setAuthChallenge({
+            ...challenge,
+            username: safeUsername,
+          });
+          this.addLog(`Instagram challenge detected (${challenge.type || 'challenge'}). Waiting OTP input.`);
+          return {
+            requiresChallenge: true,
+            challenge: this.getPublicAuthChallengeState(),
+          };
         }
+
+        const url = String(auth.pageUrl || this.page?.url?.() || '');
+        this.clearAuthChallenge();
         throw new Error(`Login username/password gagal. Redirected to ${url || 'login page'}.`);
       }
 
@@ -1579,6 +1685,96 @@ class InstagramLiveService {
         pageUrl: auth.pageUrl,
         cookie,
       };
+    });
+  }
+
+  async submitChallengeCode(codeInput) {
+    return this.runExclusive(async () => {
+      const code = String(codeInput || '').replace(/\s+/g, '').trim();
+      if (!code) {
+        throw new Error('Kode OTP wajib diisi.');
+      }
+
+      const pending = this.state.authChallenge || {};
+      if (!pending.pending) {
+        throw new Error('Tidak ada challenge OTP yang menunggu verifikasi.');
+      }
+
+      if (pending.pageUrl) {
+        const currentUrl = String(this.page?.url?.() || '');
+        if (!/two_factor|challenge|checkpoint/i.test(currentUrl)) {
+          try {
+            await this.gotoInstagram(pending.pageUrl, { timeout: 30000 });
+            await this.page.waitForTimeout(900);
+          } catch (_) {
+            // keep current page if redirect back fails
+          }
+        }
+      }
+
+      await this.ensurePage();
+      const codeSelector = 'input[name*="code" i], input[name="verificationCode"], input[name="security_code"], input[autocomplete="one-time-code"], input[inputmode="numeric"], input[type="tel"]';
+
+      const codeField = this.page.locator(codeSelector).first();
+      try {
+        await codeField.fill(code, { timeout: 10000 });
+      } catch (_) {
+        throw new Error('Field OTP tidak ditemukan di halaman challenge.');
+      }
+
+      let submitted = false;
+      try {
+        await this.clickByTextRegex(/confirm|next|continue|submit|verify|kirim|selanjutnya|lanjut/i);
+        submitted = true;
+      } catch (_) {
+        submitted = false;
+      }
+
+      if (!submitted) {
+        try {
+          await codeField.press('Enter');
+        } catch (_) {
+          // ignore fallback enter failures
+        }
+      }
+
+      await this.page.waitForTimeout(4500);
+      try {
+        await this.clickByTextRegex(/Not now|Nanti|Lain kali/i);
+        await this.page.waitForTimeout(700);
+      } catch (_) {
+        // ignore optional dialogs
+      }
+
+      const auth = await this.detectLoginStateAndUsername();
+      if (auth.loggedIn) {
+        const cookie = await this.exportInstagramCookieString();
+        if (!cookie || !cookie.includes('=')) {
+          throw new Error('OTP berhasil, tapi cookie sesi Instagram tidak terbaca.');
+        }
+        this.applyAuthenticatedState({ auth, cookie, source: 'Instagram challenge' });
+        return {
+          loggedIn: this.state.loggedIn,
+          username: this.state.username,
+          pageUrl: auth.pageUrl,
+          cookie,
+        };
+      }
+
+      const challenge = await this.detectAuthChallengeState().catch(() => ({ pending: false }));
+      if (challenge && challenge.pending) {
+        this.setAuthChallenge({
+          ...challenge,
+          username: pending.username || this.state.username,
+          message: challenge.hasCodeInput
+            ? 'OTP belum valid atau sudah expired. Coba kode baru.'
+            : challenge.message,
+        });
+        throw new Error(this.state.authChallenge.message || 'Verifikasi OTP belum berhasil.');
+      }
+
+      this.clearAuthChallenge();
+      throw new Error('Verifikasi OTP gagal. Login belum berhasil.');
     });
   }
 
@@ -2818,6 +3014,7 @@ class InstagramLiveService {
     return {
       loggedIn: this.state.loggedIn,
       username: this.state.username,
+      authChallenge: this.getPublicAuthChallengeState(),
       browser: {
         ready: Boolean(this.browser),
         headless: this.headless,

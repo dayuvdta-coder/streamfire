@@ -24,6 +24,15 @@ router.post('/session/login-credentials', async (req, res) => {
   }
 });
 
+router.post('/session/challenge/verify', async (req, res) => {
+  try {
+    const result = await instagramService.submitChallengeCode(req.body.code);
+    res.json({ ok: true, result });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message || String(err) });
+  }
+});
+
 router.post('/live/setup', async (req, res) => {
   try {
     const result = await instagramService.setupLive({
