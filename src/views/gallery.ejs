@@ -289,6 +289,43 @@
                 editModal.classList.add('hidden');
             }
 
+            function sleep(ms) {
+                return new Promise((resolve) => setTimeout(resolve, ms));
+            }
+
+            async function waitWatermarkJob(jobId) {
+                const timeoutAt = Date.now() + (30 * 60 * 1000);
+                while (Date.now() < timeoutAt) {
+                    await sleep(2000);
+                    let resp;
+                    try {
+                        resp = await fetch('/api/video/watermark-job/' + encodeURIComponent(jobId), { cache: 'no-store' });
+                    } catch (err) {
+                        continue;
+                    }
+
+                    const data = await resp.json().catch(() => ({}));
+                    if (!resp.ok || data.ok === false) {
+                        if (resp.status === 404) {
+                            throw new Error('Job watermark hilang (mungkin server restart). Silakan ulangi edit.');
+                        }
+                        throw new Error(data.error || 'Gagal cek status watermark.');
+                    }
+
+                    if (!data.status) {
+                        throw new Error('Respons status watermark tidak valid. Refresh halaman lalu coba lagi.');
+                    }
+
+                    const status = String(data.status || '').toLowerCase();
+                    if (status === 'done') return data;
+                    if (status === 'failed') {
+                        throw new Error(data.error || 'Proses watermark gagal.');
+                    }
+                }
+
+                throw new Error('Proses watermark terlalu lama. Cek galeri lagi beberapa saat.');
+            }
+
             async function applyWatermarkEdit() {
                 const videoId = Number(editVideoId.value || 0);
                 const watermarkText = String(editWatermarkText.value || '').trim();
@@ -308,7 +345,7 @@
 
                 const oldBtnText = editApplyBtn.innerHTML;
                 editApplyBtn.disabled = true;
-                editApplyBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing...';
+                editApplyBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Memproses...';
 
                 try {
                     const resp = await fetch('/api/video/' + videoId + '/watermark', {
@@ -325,6 +362,10 @@
                     const data = await resp.json().catch(() => ({}));
                     if (!resp.ok || data.ok === false) {
                         throw new Error(data.error || 'Gagal membuat video watermark.');
+                    }
+
+                    if (data.jobId) {
+                        await waitWatermarkJob(data.jobId);
                     }
 
                     await showAlert('success', 'Berhasil', 'Video baru dengan watermark sudah dibuat.');

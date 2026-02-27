@@ -8,10 +8,57 @@ const { getUploadPath } = require('../config/runtimePaths');
 
 const router = express.Router();
 const FFMPEG_BIN = String(process.env.FFMPEG_PATH || 'ffmpeg').trim() || 'ffmpeg';
+const WATERMARK_JOB_TTL_MS = Math.max(5 * 60 * 1000, Math.min(24 * 60 * 60 * 1000, Number(process.env.WATERMARK_JOB_TTL_MS || (6 * 60 * 60 * 1000))));
+const watermarkJobs = new Map();
 
 function parseVideoId(raw) {
   const id = Number(raw);
   return Number.isFinite(id) && id > 0 ? id : 0;
+}
+
+function createJobId() {
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `${Date.now()}-${rand}`;
+}
+
+function pruneWatermarkJobs() {
+  const now = Date.now();
+  for (const [jobId, job] of watermarkJobs.entries()) {
+    if ((now - Number(job.updatedAtMs || job.createdAtMs || 0)) > WATERMARK_JOB_TTL_MS) {
+      watermarkJobs.delete(jobId);
+    }
+  }
+}
+
+function createWatermarkJob(extra = {}) {
+  pruneWatermarkJobs();
+  const now = Date.now();
+  const id = createJobId();
+  const job = {
+    id,
+    type: 'watermark',
+    status: 'queued',
+    message: 'Job watermark diterima.',
+    error: null,
+    video: null,
+    createdAtMs: now,
+    updatedAtMs: now,
+    ...extra,
+  };
+  watermarkJobs.set(id, job);
+  return job;
+}
+
+function updateWatermarkJob(jobId, patch = {}) {
+  const current = watermarkJobs.get(jobId);
+  if (!current) return null;
+  const updated = {
+    ...current,
+    ...patch,
+    updatedAtMs: Date.now(),
+  };
+  watermarkJobs.set(jobId, updated);
+  return updated;
 }
 
 function getVideoById(videoId) {
@@ -116,39 +163,35 @@ async function generateThumbnail(videoFilePath, thumbnailFilePath) {
   await runFfmpeg(args);
 }
 
-router.post('/:id/watermark', async (req, res) => {
-  const videoId = parseVideoId(req.params.id);
-  if (!videoId) {
-    return res.status(400).json({ ok: false, error: 'Video ID tidak valid.' });
-  }
-
-  const watermarkText = String(req.body.watermarkText || '').trim().slice(0, 100);
-  if (!watermarkText) {
-    return res.status(400).json({ ok: false, error: 'Teks watermark wajib diisi.' });
-  }
-
+async function runWatermarkJob({
+  videoId,
+  watermarkText,
+  position,
+  fontSize,
+  opacity,
+  margin,
+  outputTitleInput,
+  onProgress,
+}) {
+  const update = typeof onProgress === 'function' ? onProgress : () => { };
   const uploadPath = getUploadPath();
-  const position = sanitizeWatermarkPosition(String(req.body.position || 'bottom-right').trim());
-  const fontSize = Math.round(clampNumber(req.body.fontSize, 16, 96, 28));
-  const opacity = clampNumber(req.body.opacity, 0.15, 1, 0.85);
-  const margin = Math.round(clampNumber(req.body.margin, 8, 80, 24));
-  const outputTitleInput = String(req.body.outputTitle || '').trim().slice(0, 120);
 
+  update('Memuat data video...');
   let row;
   try {
     row = await getVideoById(videoId);
   } catch (err) {
     logger.error(`Failed to load video ${videoId}: ${err.message}`);
-    return res.status(500).json({ ok: false, error: 'Gagal membaca data video.' });
+    throw new Error('Gagal membaca data video.');
   }
 
   if (!row || !row.filename) {
-    return res.status(404).json({ ok: false, error: 'Video tidak ditemukan.' });
+    throw new Error('Video tidak ditemukan.');
   }
 
   const inputPath = path.join(uploadPath, row.filename);
   if (!fs.existsSync(inputPath)) {
-    return res.status(404).json({ ok: false, error: 'File video sumber tidak ditemukan.' });
+    throw new Error('File video sumber tidak ditemukan.');
   }
 
   const srcBase = path.parse(row.filename).name.replace(/[^a-zA-Z0-9-_]/g, '-').slice(0, 80) || 'video';
@@ -162,6 +205,7 @@ router.post('/:id/watermark', async (req, res) => {
   const boxOpacity = clampNumber(opacity * 0.55, 0.2, 0.8, 0.45);
   const filter = `drawtext=text='${escapedText}':fontsize=${fontSize}:fontcolor=white@${opacity.toFixed(2)}:box=1:boxcolor=black@${boxOpacity.toFixed(2)}:boxborderw=14:x=${pos.x}:y=${pos.y}`;
 
+  update('Menjalankan FFmpeg...');
   try {
     await runFfmpeg([
       '-y',
@@ -189,16 +233,18 @@ router.post('/:id/watermark', async (req, res) => {
     ]);
   } catch (err) {
     logger.error(`Watermark ffmpeg failed for video ${videoId}: ${err.message}`);
-    await safeUnlink(outputPath);
-    return res.status(500).json({ ok: false, error: `Gagal proses watermark: ${err.message}` });
+    safeUnlink(outputPath);
+    throw new Error(`Gagal proses watermark: ${err.message}`);
   }
 
+  update('Membuat thumbnail...');
   try {
     await generateThumbnail(outputPath, thumbPath);
   } catch (err) {
     logger.warn(`Thumbnail generation failed for ${outputFilename}: ${err.message}`);
   }
 
+  update('Menyimpan hasil ke galeri...');
   const outputTitle = outputTitleInput || `${row.title || 'Video'} (Watermark)`;
 
   try {
@@ -208,22 +254,103 @@ router.post('/:id/watermark', async (req, res) => {
       thumbnail: fs.existsSync(thumbPath) ? thumbFilename : null,
     });
 
-    return res.json({
-      ok: true,
-      message: 'Video watermark berhasil dibuat.',
-      video: {
-        id: newId,
-        title: outputTitle,
-        filename: outputFilename,
-        thumbnail: fs.existsSync(thumbPath) ? thumbFilename : null,
-      },
-    });
+    return {
+      id: newId,
+      title: outputTitle,
+      filename: outputFilename,
+      thumbnail: fs.existsSync(thumbPath) ? thumbFilename : null,
+    };
   } catch (err) {
     logger.error(`Failed to save edited video ${outputFilename}: ${err.message}`);
-    await safeUnlink(outputPath);
-    await safeUnlink(thumbPath);
-    return res.status(500).json({ ok: false, error: 'Gagal menyimpan video hasil edit.' });
+    safeUnlink(outputPath);
+    safeUnlink(thumbPath);
+    throw new Error('Gagal menyimpan video hasil edit.');
   }
+}
+
+router.post('/:id/watermark', async (req, res) => {
+  const videoId = parseVideoId(req.params.id);
+  if (!videoId) {
+    return res.status(400).json({ ok: false, error: 'Video ID tidak valid.' });
+  }
+
+  const watermarkText = String(req.body.watermarkText || '').trim().slice(0, 100);
+  if (!watermarkText) {
+    return res.status(400).json({ ok: false, error: 'Teks watermark wajib diisi.' });
+  }
+
+  const payload = {
+    videoId,
+    watermarkText,
+    position: sanitizeWatermarkPosition(String(req.body.position || 'bottom-right').trim()),
+    fontSize: Math.round(clampNumber(req.body.fontSize, 16, 96, 28)),
+    opacity: clampNumber(req.body.opacity, 0.15, 1, 0.85),
+    margin: Math.round(clampNumber(req.body.margin, 8, 80, 24)),
+    outputTitleInput: String(req.body.outputTitle || '').trim().slice(0, 120),
+  };
+
+  const job = createWatermarkJob({
+    videoId,
+    watermarkText,
+    message: 'Job watermark dimulai...',
+  });
+
+  res.status(202).json({
+    ok: true,
+    queued: true,
+    jobId: job.id,
+    status: job.status,
+    message: 'Proses watermark berjalan di background.',
+  });
+
+  (async () => {
+    updateWatermarkJob(job.id, { status: 'processing', message: 'Memulai proses watermark...' });
+    try {
+      const video = await runWatermarkJob({
+        ...payload,
+        onProgress: (message) => {
+          updateWatermarkJob(job.id, { status: 'processing', message: String(message || 'Processing...').slice(0, 160) });
+        },
+      });
+
+      updateWatermarkJob(job.id, {
+        status: 'done',
+        message: 'Video watermark berhasil dibuat.',
+        error: null,
+        video,
+      });
+    } catch (err) {
+      updateWatermarkJob(job.id, {
+        status: 'failed',
+        message: 'Proses watermark gagal.',
+        error: err.message || 'Unknown error',
+      });
+    }
+  })();
+});
+
+router.get('/watermark-job/:jobId', (req, res) => {
+  pruneWatermarkJobs();
+  const jobId = String(req.params.jobId || '').trim();
+  if (!jobId) {
+    return res.status(400).json({ ok: false, error: 'Job ID wajib diisi.' });
+  }
+
+  const job = watermarkJobs.get(jobId);
+  if (!job) {
+    return res.status(404).json({ ok: false, error: 'Job watermark tidak ditemukan.' });
+  }
+
+  return res.json({
+    ok: true,
+    jobId: job.id,
+    status: job.status,
+    message: job.message || '',
+    error: job.error || null,
+    video: job.video || null,
+    createdAtMs: job.createdAtMs,
+    updatedAtMs: job.updatedAtMs,
+  });
 });
 
 router.delete('/:id', async (req, res) => {
