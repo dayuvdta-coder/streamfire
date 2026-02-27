@@ -40,6 +40,7 @@
 - Quick Stream dari URL YouTube/direct link (tanpa upload file)
 - Download video dari link (YouTube dkk via `yt-dlp`) lalu otomatis masuk ke galeri
 - Default mode FFmpeg sudah di-tuning supaya ringan untuk VPS kecil
+- Editor watermark pro di galeri (preset style, profile kualitas, warna, opacity, margin)
 
 ## Integrasi Instagram Live
 

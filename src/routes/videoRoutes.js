@@ -126,6 +126,26 @@ function sanitizeWatermarkPosition(value) {
   return allowed.has(value) ? value : 'bottom-right';
 }
 
+function sanitizeWatermarkStylePreset(value) {
+  const allowed = new Set(['classic', 'minimal', 'bold', 'soft']);
+  const v = String(value || '').trim().toLowerCase();
+  return allowed.has(v) ? v : 'classic';
+}
+
+function sanitizeWatermarkQualityProfile(value) {
+  const allowed = new Set(['fast', 'balanced', 'quality']);
+  const v = String(value || '').trim().toLowerCase();
+  return allowed.has(v) ? v : 'fast';
+}
+
+function normalizeHexColor(raw, fallbackHex = 'FFFFFF') {
+  const source = String(raw || '').trim().replace(/^#/, '').toUpperCase();
+  if (/^[0-9A-F]{6}$/.test(source)) return `0x${source}`;
+  if (/^[0-9A-F]{8}$/.test(source)) return `0x${source.slice(0, 6)}`;
+  const fallback = String(fallbackHex || 'FFFFFF').trim().replace(/^#/, '').toUpperCase();
+  return /^[0-9A-F]{6}$/.test(fallback) ? `0x${fallback}` : '0xFFFFFF';
+}
+
 function resolveWatermarkPosition(position, margin) {
   switch (position) {
     case 'top-left':
@@ -267,19 +287,42 @@ async function runWatermarkJob({
   fontSize,
   opacity,
   margin,
+  stylePreset,
+  qualityProfile,
+  textColor,
+  boxColor,
+  boxOpacity,
+  boxPadding,
+  outlineWidth,
   outputTitleInput,
   onProgress,
 }) {
   const update = typeof onProgress === 'function' ? onProgress : () => { };
   const uploadPath = getUploadPath();
-  const fastMode = String(process.env.WATERMARK_FAST_MODE || '1') === '1';
-  const preset = String(process.env.WATERMARK_PRESET || (fastMode ? 'ultrafast' : 'veryfast')).trim() || (fastMode ? 'ultrafast' : 'veryfast');
-  const crf = Math.round(clampNumber(process.env.WATERMARK_CRF, 18, 38, fastMode ? 28 : 23));
+  const effectiveStylePreset = sanitizeWatermarkStylePreset(stylePreset);
+  const effectiveQualityProfile = sanitizeWatermarkQualityProfile(qualityProfile);
+  const envFastModeDefault = String(process.env.WATERMARK_FAST_MODE || '1') === '1';
+  const envPresetDefault = String(process.env.WATERMARK_PRESET || (envFastModeDefault ? 'ultrafast' : 'veryfast')).trim() || (envFastModeDefault ? 'ultrafast' : 'veryfast');
+  const envCrfDefault = Math.round(clampNumber(process.env.WATERMARK_CRF, 18, 38, envFastModeDefault ? 28 : 23));
   const maxWidth = Math.round(clampNumber(process.env.WATERMARK_MAX_WIDTH, 640, 3840, 1280));
   const maxHeight = Math.round(clampNumber(process.env.WATERMARK_MAX_HEIGHT, 360, 3840, 720));
   const maxFps = Math.round(clampNumber(process.env.WATERMARK_MAX_FPS, 15, 60, 30));
   const audioBitrateK = Math.round(clampNumber(process.env.WATERMARK_AUDIO_BITRATE_K, 64, 320, 96));
   const threads = Math.round(clampNumber(process.env.WATERMARK_THREADS, 0, 32, 0));
+
+  let fastMode = envFastModeDefault;
+  let preset = envPresetDefault;
+  let crf = envCrfDefault;
+
+  if (effectiveQualityProfile === 'balanced') {
+    fastMode = false;
+    preset = String(process.env.WATERMARK_PRESET_BALANCED || 'veryfast').trim() || 'veryfast';
+    crf = Math.round(clampNumber(process.env.WATERMARK_CRF_BALANCED, 18, 38, 25));
+  } else if (effectiveQualityProfile === 'quality') {
+    fastMode = false;
+    preset = String(process.env.WATERMARK_PRESET_QUALITY || 'faster').trim() || 'faster';
+    crf = Math.round(clampNumber(process.env.WATERMARK_CRF_QUALITY, 18, 38, 22));
+  }
 
   update('Memuat data video...');
   let row;
@@ -307,8 +350,54 @@ async function runWatermarkJob({
   const thumbPath = path.join(uploadPath, 'thumbnails', thumbFilename);
   const escapedText = escapeDrawText(watermarkText);
   const pos = resolveWatermarkPosition(position, margin);
-  const boxOpacity = clampNumber(opacity * 0.55, 0.2, 0.8, 0.45);
-  const drawTextFilter = `drawtext=text='${escapedText}':fontsize=${fontSize}:fontcolor=white@${opacity.toFixed(2)}:box=1:boxcolor=black@${boxOpacity.toFixed(2)}:boxborderw=14:x=${pos.x}:y=${pos.y}`;
+  let finalFontSize = Math.round(clampNumber(fontSize, 16, 96, 28));
+  let finalOpacity = clampNumber(opacity, 0.15, 1, 0.85);
+  let finalBoxOpacity = clampNumber(boxOpacity, 0, 1, clampNumber(opacity * 0.55, 0.2, 0.8, 0.45));
+  let finalBoxPadding = Math.round(clampNumber(boxPadding, 0, 40, 14));
+  let finalOutlineWidth = Math.round(clampNumber(outlineWidth, 0, 8, 0));
+
+  if (effectiveStylePreset === 'minimal') {
+    finalBoxOpacity = 0;
+    finalBoxPadding = 0;
+    finalOutlineWidth = Math.max(finalOutlineWidth, 2);
+  } else if (effectiveStylePreset === 'bold') {
+    finalFontSize = Math.min(96, finalFontSize + 4);
+    finalBoxOpacity = Math.max(0.55, finalBoxOpacity);
+    finalBoxPadding = Math.max(16, finalBoxPadding);
+    finalOutlineWidth = Math.max(finalOutlineWidth, 1);
+  } else if (effectiveStylePreset === 'soft') {
+    finalOpacity = clampNumber(finalOpacity, 0.35, 0.85, 0.75);
+    finalBoxOpacity = Math.min(0.35, Math.max(0.15, finalBoxOpacity));
+    finalBoxPadding = Math.max(10, finalBoxPadding);
+  }
+
+  const finalTextColor = normalizeHexColor(textColor, 'FFFFFF');
+  const finalBoxColor = normalizeHexColor(boxColor, '000000');
+  const finalOutlineColor = normalizeHexColor('000000', '000000');
+  const drawTextParts = [
+    `drawtext=text='${escapedText}'`,
+    `fontsize=${finalFontSize}`,
+    `fontcolor=${finalTextColor}@${finalOpacity.toFixed(2)}`,
+    `x=${pos.x}`,
+    `y=${pos.y}`,
+  ];
+  if (finalBoxOpacity > 0 && finalBoxPadding > 0) {
+    drawTextParts.push('box=1');
+    drawTextParts.push(`boxcolor=${finalBoxColor}@${finalBoxOpacity.toFixed(2)}`);
+    drawTextParts.push(`boxborderw=${finalBoxPadding}`);
+  } else {
+    drawTextParts.push('box=0');
+  }
+  if (finalOutlineWidth > 0) {
+    drawTextParts.push(`borderw=${finalOutlineWidth}`);
+    drawTextParts.push(`bordercolor=${finalOutlineColor}@0.9`);
+  }
+  if (effectiveStylePreset === 'soft') {
+    drawTextParts.push('shadowx=2');
+    drawTextParts.push('shadowy=2');
+    drawTextParts.push('shadowcolor=0x000000@0.35');
+  }
+  const drawTextFilter = drawTextParts.join(':');
   const filterParts = [];
   if (fastMode) {
     filterParts.push(`fps=${maxFps}`);
@@ -319,7 +408,7 @@ async function runWatermarkJob({
 
   update('Menjalankan FFmpeg...');
   const ffmpegStartMs = Date.now();
-  emitRuntimeLog(`[Watermark][${jobId || '-'}] start video=${videoId} fastMode=${fastMode ? 1 : 0} preset=${preset} crf=${crf}`);
+  emitRuntimeLog(`[Watermark][${jobId || '-'}] start video=${videoId} profile=${effectiveQualityProfile} style=${effectiveStylePreset} fastMode=${fastMode ? 1 : 0} preset=${preset} crf=${crf}`);
 
   try {
     let lastLogLine = '';
@@ -424,6 +513,13 @@ router.post('/:id/watermark', async (req, res) => {
     fontSize: Math.round(clampNumber(req.body.fontSize, 16, 96, 28)),
     opacity: clampNumber(req.body.opacity, 0.15, 1, 0.85),
     margin: Math.round(clampNumber(req.body.margin, 8, 80, 24)),
+    stylePreset: sanitizeWatermarkStylePreset(String(req.body.stylePreset || 'classic').trim()),
+    qualityProfile: sanitizeWatermarkQualityProfile(String(req.body.qualityProfile || 'fast').trim()),
+    textColor: String(req.body.textColor || '#ffffff').trim().slice(0, 24),
+    boxColor: String(req.body.boxColor || '#000000').trim().slice(0, 24),
+    boxOpacity: clampNumber(req.body.boxOpacity, 0, 1, 0.45),
+    boxPadding: Math.round(clampNumber(req.body.boxPadding, 0, 40, 14)),
+    outlineWidth: Math.round(clampNumber(req.body.outlineWidth, 0, 8, 0)),
     outputTitleInput: String(req.body.outputTitle || '').trim().slice(0, 120),
   };
 
