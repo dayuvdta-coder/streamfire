@@ -26,6 +26,13 @@ const IG_CHAT_NETWORK_MAX_RESPONSE_BYTES = toPositiveInt(process.env.IG_CHAT_NET
 const IG_CHAT_WS_FRAME_MAX_BYTES = toPositiveInt(process.env.IG_CHAT_WS_FRAME_MAX_BYTES, 500000);
 const IG_CHAT_ENABLE_WS = parseBooleanEnv(process.env.IG_CHAT_ENABLE_WS, true);
 const IG_CHAT_ALLOW_DOM_FALLBACK = parseBooleanEnv(process.env.IG_CHAT_ALLOW_DOM_FALLBACK, false);
+const IG_BROWSER_LOCALE = String(process.env.IG_BROWSER_LOCALE || 'en-US').trim() || 'en-US';
+const IG_BROWSER_TIMEZONE = String(process.env.IG_BROWSER_TIMEZONE || 'Asia/Jakarta').trim() || 'Asia/Jakarta';
+const IG_BROWSER_ACCEPT_LANGUAGE =
+  String(process.env.IG_BROWSER_ACCEPT_LANGUAGE || 'en-US,en;q=0.9,id;q=0.8').trim() || 'en-US,en;q=0.9,id;q=0.8';
+const IG_BROWSER_USER_AGENT = String(
+  process.env.IG_BROWSER_USER_AGENT || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+).trim();
 const IG_CHAT_SYSTEM_MSG_RE = /joined|bergabung|is watching|started watching|mengikuti|pinned|pin|sent|mengirim|menyukai|followed|menyukai siaran|menonton/i;
 const IG_CHAT_BLOCKED_USERNAMES = new Set([
   'instagram',
@@ -370,6 +377,7 @@ class InstagramLiveService {
     this.boundPages = new WeakSet();
     this.chatNetworkSourceLogged = false;
     this.followUpTimers = new Set();
+    this.lastNavigation = null;
 
     this.state = {
       cookieString: '',
@@ -541,20 +549,132 @@ class InstagramLiveService {
 
   async openInstagramLoginPage() {
     const urls = [
-      'https://www.instagram.com/accounts/login/?next=%2F&source=omni_redirect',
-      'https://www.instagram.com/accounts/login/',
+      'https://www.instagram.com/accounts/login/?force_classic_login=1',
       'https://www.instagram.com/',
+      'https://m.instagram.com/accounts/login/',
+      'https://www.instagram.com/accounts/login/',
+      'https://www.instagram.com/accounts/login/?next=%2F&source=omni_redirect',
     ];
     let lastErr = null;
+    const probes = [];
+
     for (const url of urls) {
       try {
-        await this.gotoInstagram(url);
-        return;
+        const nav = await this.gotoInstagram(url);
+        await this.page.waitForTimeout(850);
+        await this.dismissInstagramDialogsForLogin();
+
+        const probe = await this.probeInstagramLoginSurface();
+        const status = Number(nav?.status ?? probe?.status ?? 0) || null;
+        const blocked = this.isBlockedInstagramLoginProbe({
+          ...probe,
+          status,
+        });
+
+        probes.push({
+          url,
+          status,
+          path: probe.path || '-',
+          hasUser: Boolean(probe.hasUser),
+          hasPass: Boolean(probe.hasPass),
+          blocked,
+        });
+
+        if (blocked) {
+          this.addLog(`Login page blocked (status=${status || '-'} path=${probe.path || '-'}) while opening ${url}.`, 'warn');
+          continue;
+        }
+
+        const hasLoginInputs = Boolean(probe.hasUser || probe.hasPass);
+        const likelyLoggedInSurface =
+          !/\/accounts\/login\/?/i.test(String(probe.path || '')) &&
+          !hasLoginInputs &&
+          Number(probe.htmlLen || 0) > 1000;
+        if (hasLoginInputs || likelyLoggedInSurface) {
+          return;
+        }
       } catch (err) {
         lastErr = err;
+        probes.push({
+          url,
+          status: null,
+          path: '-',
+          hasUser: false,
+          hasPass: false,
+          blocked: false,
+          error: readableError(err),
+        });
       }
     }
-    throw lastErr || new Error('Gagal membuka halaman login Instagram.');
+
+    const blockedCount = probes.filter((item) => item.blocked || item.status === 429 || item.status === 403).length;
+    const summary = probes
+      .map((item) => {
+        const statusPart = item.status ? `status=${item.status}` : item.error ? `err=${item.error}` : 'status=-';
+        return `${item.path || '-'}(${statusPart})`;
+      })
+      .join(', ');
+
+    if (blockedCount && blockedCount >= Math.max(2, probes.length - 1)) {
+      throw new Error(
+        `Akses login Instagram diblokir sementara (HTTP 429/403). ${summary}. Coba tunggu 10-30 menit, ganti IP/proxy, atau gunakan Login via Cookie.`
+      );
+    }
+
+    throw lastErr || new Error(`Gagal membuka halaman login Instagram. ${summary || 'Tidak ada respons valid.'}`);
+  }
+
+  async probeInstagramLoginSurface() {
+    await this.ensurePage();
+    const status = Number(this.lastNavigation?.status || 0) || null;
+    try {
+      const info = await this.page.evaluate(() => {
+        const text = String(document.body?.innerText || '').replace(/\s+/g, ' ').trim();
+        const htmlLen = Number((document.documentElement?.outerHTML || '').length || 0);
+        return {
+          path: String(location.pathname || ''),
+          title: String(document.title || '').trim(),
+          hasUser: Boolean(document.querySelector('input[name="username"], input[autocomplete="username"], input[name="email"]')),
+          hasPass: Boolean(document.querySelector('input[name="password"], input[autocomplete="current-password"], input[type="password"]')),
+          bodyLen: Number(text.length || 0),
+          body: text.slice(0, 180),
+          htmlLen,
+          readyState: String(document.readyState || ''),
+        };
+      });
+      return {
+        ...info,
+        status,
+      };
+    } catch (_) {
+      return {
+        path: '',
+        title: '',
+        hasUser: false,
+        hasPass: false,
+        bodyLen: 0,
+        body: '',
+        htmlLen: 0,
+        readyState: '',
+        status,
+      };
+    }
+  }
+
+  isBlockedInstagramLoginProbe(probe = {}) {
+    const status = Number(probe.status || 0);
+    if (status === 429 || status === 403) return true;
+    if (status >= 500) return true;
+
+    const path = String(probe.path || '');
+    const hasInputs = Boolean(probe.hasUser || probe.hasPass);
+    const htmlLen = Number(probe.htmlLen || 0);
+    const bodyLen = Number(probe.bodyLen || 0);
+
+    if (/\/accounts\/login\/?/i.test(path) && !hasInputs && bodyLen === 0 && htmlLen < 200) {
+      return true;
+    }
+    return false;
   }
 
   async fillFirstVisibleInput(selectors, value, maxCandidates = 10) {
@@ -598,18 +718,8 @@ class InstagramLiveService {
   async getLoginDebugHint() {
     await this.ensurePage();
     try {
-      const info = await this.page.evaluate(() => {
-        const path = String(location.pathname || '');
-        const title = String(document.title || '').trim();
-        const body = String(document.body?.innerText || '')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .slice(0, 160);
-        const hasUser = Boolean(document.querySelector('input[name="username"], input[autocomplete="username"], input[name="email"]'));
-        const hasPass = Boolean(document.querySelector('input[name="password"], input[autocomplete="current-password"], input[type="password"]'));
-        return { path, title, body, hasUser, hasPass };
-      });
-      return `path=${info.path || '-'} title="${info.title || '-'}" userField=${info.hasUser ? 'yes' : 'no'} passField=${info.hasPass ? 'yes' : 'no'} text="${info.body || '-'}"`;
+      const info = await this.probeInstagramLoginSurface();
+      return `status=${info.status || '-'} path=${info.path || '-'} title="${info.title || '-'}" userField=${info.hasUser ? 'yes' : 'no'} passField=${info.hasPass ? 'yes' : 'no'} text="${info.body || '-'}"`;
     } catch (_) {
       return `url=${String(this.page?.url?.() || '-')}`;
     }
@@ -1525,9 +1635,56 @@ class InstagramLiveService {
       // ignore close errors
     }
 
-    this.context = await this.browser.newContext({
+    const contextOptions = {
       viewport: { width: 1366, height: 900 },
-    });
+      locale: IG_BROWSER_LOCALE,
+      colorScheme: 'light',
+      userAgent: IG_BROWSER_USER_AGENT,
+      timezoneId: IG_BROWSER_TIMEZONE,
+    };
+
+    try {
+      this.context = await this.browser.newContext(contextOptions);
+    } catch (err) {
+      if (contextOptions.timezoneId) {
+        this.addLog(`Invalid IG_BROWSER_TIMEZONE="${contextOptions.timezoneId}". Retrying without timezone override.`, 'warn');
+        delete contextOptions.timezoneId;
+        this.context = await this.browser.newContext(contextOptions);
+      } else {
+        throw err;
+      }
+    }
+
+    try {
+      await this.context.setExtraHTTPHeaders({
+        'Accept-Language': IG_BROWSER_ACCEPT_LANGUAGE,
+        'Upgrade-Insecure-Requests': '1',
+      });
+    } catch (_) {
+      // ignore header override failure
+    }
+
+    try {
+      await this.context.addInitScript(() => {
+        const safeDefine = (target, key, getter) => {
+          try {
+            Object.defineProperty(target, key, { get: getter });
+          } catch (_) {
+            // ignore define failures
+          }
+        };
+        safeDefine(navigator, 'webdriver', () => undefined);
+        safeDefine(navigator, 'platform', () => 'Win32');
+        safeDefine(navigator, 'language', () => 'en-US');
+        safeDefine(navigator, 'languages', () => ['en-US', 'en', 'id']);
+        if (!window.chrome) {
+          safeDefine(window, 'chrome', () => ({ runtime: {}, app: {}, csi: () => ({}) }));
+        }
+      });
+    } catch (_) {
+      // ignore stealth script failures
+    }
+
     this.page = await this.context.newPage();
     this.bindPageEvents(this.page);
   }
@@ -1564,11 +1721,26 @@ class InstagramLiveService {
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
         await this.ensurePage();
-        await this.page.goto(url, { waitUntil: 'domcontentloaded', timeout });
+        const response = await this.page.goto(url, { waitUntil: 'domcontentloaded', timeout });
         await this.page.waitForTimeout(1600);
-        return;
+        const status = response ? response.status() : null;
+        const nav = {
+          requestedUrl: String(url || ''),
+          finalUrl: String(this.page?.url?.() || ''),
+          status: Number(status || 0) || null,
+          at: new Date().toISOString(),
+        };
+        this.lastNavigation = nav;
+        return nav;
       } catch (err) {
         lastErr = err;
+        this.lastNavigation = {
+          requestedUrl: String(url || ''),
+          finalUrl: String(this.page?.url?.() || ''),
+          status: null,
+          error: readableError(err),
+          at: new Date().toISOString(),
+        };
         this.addLog(`Navigation attempt ${attempt}/3 failed: ${readableError(err)}`, 'warn');
         if (attempt < 3) {
           await this.recyclePage();
@@ -1824,6 +1996,12 @@ class InstagramLiveService {
       }
 
       if (!filled) {
+        const probe = await this.probeInstagramLoginSurface().catch(() => null);
+        if (probe && this.isBlockedInstagramLoginProbe(probe)) {
+          throw new Error(
+            `Akses login Instagram diblokir sementara (status=${probe.status || '-'} path=${probe.path || '-'}). Coba tunggu 10-30 menit, ganti IP/proxy, atau gunakan Login via Cookie.`
+          );
+        }
         const hint = await this.getLoginDebugHint();
         throw new Error(`Form login Instagram tidak ditemukan. ${hint}`);
       }

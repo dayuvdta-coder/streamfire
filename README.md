@@ -61,6 +61,14 @@ Catatan:
   ```bash
   sudo -u streamfire bash -lc 'cd /opt/streamfire && PLAYWRIGHT_BROWSERS_PATH=/opt/streamfire/.cache/ms-playwright npx playwright install chromium'
   ```
+- Jika login username/password gagal dengan pesan block `429/403`, itu biasanya rate-limit anti-bot dari Instagram (bukan bug form). Solusi paling cepat: tunggu 10-30 menit, ganti IP/proxy, atau pakai `Login via Cookie`.
+- Opsional tuning browser IG via env:
+  ```bash
+  IG_BROWSER_LOCALE=en-US
+  IG_BROWSER_TIMEZONE=Asia/Jakarta
+  IG_BROWSER_ACCEPT_LANGUAGE=en-US,en;q=0.9,id;q=0.8
+  IG_BROWSER_USER_AGENT=Mozilla/5.0 ...
+  ```
 
 ## Quick Install (Sekali Deploy - Rekomendasi VPS)
 Jalankan 1 command ini di VPS (Ubuntu/Debian):
