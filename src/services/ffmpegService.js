@@ -128,7 +128,7 @@ function startStream(sourceInput, settings = { bitrate: '2500k', resolution: '12
     return null;
   }
 
-  args.push('-map', '0:v', '-map', '0:a');
+  args.push('-map', '0:v:0', '-map', '0:a?');
 
   if (destinations.length === 1) {
     args.push('-f', 'flv', destinations[0]);
