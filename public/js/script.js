@@ -556,6 +556,9 @@ const igElements = {
     cookieSaveBtn: document.getElementById('ig-cookie-save-btn'),
     cookieApplyBtn: document.getElementById('ig-cookie-apply-btn'),
     cookieDeleteBtn: document.getElementById('ig-cookie-delete-btn'),
+    loginUsername: document.getElementById('ig-login-username'),
+    loginPassword: document.getElementById('ig-login-password'),
+    loginAccountBtn: document.getElementById('ig-login-account-btn'),
     title: document.getElementById('ig-title'),
     audience: document.getElementById('ig-audience'),
     streamUrl: document.getElementById('ig-stream-url'),
@@ -1002,6 +1005,13 @@ function initInstagramPanel() {
     igElements.cookieApplyBtn?.addEventListener('click', () => applySelectedInstagramCookieToTextarea({ silent: false }));
     igElements.cookieDeleteBtn?.addEventListener('click', onInstagramCookieDeleteClick);
     igElements.loginBtn?.addEventListener('click', onInstagramLoginClick);
+    igElements.loginAccountBtn?.addEventListener('click', onInstagramAccountLoginClick);
+    igElements.loginPassword?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            onInstagramAccountLoginClick();
+        }
+    });
     igElements.setupBtn?.addEventListener('click', onInstagramSetupClick);
     igElements.startBtn?.addEventListener('click', onInstagramStartStopClick);
     igElements.goBtn?.addEventListener('click', onInstagramGoLiveClick);
@@ -1576,6 +1586,47 @@ async function onInstagramLoginClick() {
         Swal.fire({ icon: 'error', title: 'Login Failed', text: err.message, background: '#1f2937', color: '#fff' });
     } finally {
         setButtonLoading(igElements.loginBtn, false, '', 'Login via Cookie');
+    }
+}
+
+async function onInstagramAccountLoginClick() {
+    const username = String(igElements.loginUsername?.value || '').trim();
+    const password = String(igElements.loginPassword?.value || '');
+    if (!username || !password) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Login belum lengkap',
+            text: 'Isi username dan password Instagram dulu.',
+            background: '#1f2937',
+            color: '#fff'
+        });
+        return;
+    }
+
+    setButtonLoading(igElements.loginAccountBtn, true, 'Logging in...', 'Login via Instagram');
+    try {
+        const data = await callInstagramApi('/api/instagram/session/login-credentials', { username, password });
+        const returnedCookie = String(data?.result?.cookie || '').trim();
+        if (returnedCookie && igElements.cookie) {
+            igElements.cookie.value = returnedCookie;
+            saveInstagramCookieDraft();
+            if (igElements.cookieName && !igElements.cookieName.value.trim()) {
+                igElements.cookieName.value = `IG @${String(data?.result?.username || username).replace(/^@/, '')}`;
+            }
+        }
+        if (igElements.loginPassword) igElements.loginPassword.value = '';
+        await refreshInstagramStatus();
+        Swal.fire({
+            icon: 'success',
+            title: 'Login Success',
+            text: `Berhasil login sebagai @${String(data?.result?.username || username).replace(/^@/, '')}.`,
+            background: '#1f2937',
+            color: '#fff'
+        });
+    } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Login Failed', text: err.message, background: '#1f2937', color: '#fff' });
+    } finally {
+        setButtonLoading(igElements.loginAccountBtn, false, '', 'Login via Instagram');
     }
 }
 

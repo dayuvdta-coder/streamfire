@@ -12,6 +12,18 @@ router.post('/session/login-cookie', async (req, res) => {
   }
 });
 
+router.post('/session/login-credentials', async (req, res) => {
+  try {
+    const result = await instagramService.loginWithCredentials({
+      username: req.body.username,
+      password: req.body.password,
+    });
+    res.json({ ok: true, result });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message || String(err) });
+  }
+});
+
 router.post('/live/setup', async (req, res) => {
   try {
     const result = await instagramService.setupLive({

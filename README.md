@@ -47,6 +47,7 @@
 Panel Instagram Live sekarang ada langsung di Dashboard:
 
 1. Isi cookie Instagram lalu klik `Login via Cookie`.
+   atau isi username/password lalu klik `Login via Instagram`.
 2. Isi judul + audience lalu klik `Setup Live (Get Key)` untuk ambil `streamUrl/streamKey` dari Instagram Live Producer.
 3. Pilih video yang sudah di-upload di StreamFire, atur resolusi/FPS/bitrate, lalu klik `Start IG Stream`.
 4. Saat ingest sudah stabil, klik `Go Live`.

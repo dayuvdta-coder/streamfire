@@ -215,7 +215,9 @@
 
           <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
             <div class="space-y-3">
-              <label class="text-[11px] font-bold uppercase block">Cookie Instagram</label>
+              <label class="text-[11px] font-bold uppercase block">Login Instagram (2 Opsi)</label>
+              <div class="bg-cyan-50 border-2 border-black p-2">
+                <div class="text-[10px] font-black uppercase mb-2">A. Via Cookie</div>
               <textarea id="ig-cookie"
                 class="w-full bg-gray-50 border-2 border-black p-3 text-xs font-mono h-28 outline-none focus:bg-yellow-100"
                 placeholder="sessionid=...; csrftoken=...;"></textarea>
@@ -242,12 +244,26 @@
                   Hapus
                 </button>
               </div>
+              </div>
               <button id="ig-login-btn"
                 class="w-full bg-pink-400 hover:bg-pink-300 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
                 Login via Cookie
               </button>
+              <div class="bg-lime-50 border-2 border-black p-2 space-y-2">
+                <div class="text-[10px] font-black uppercase">B. Via Login Instagram</div>
+                <input id="ig-login-username" type="text"
+                  class="w-full bg-white border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100"
+                  placeholder="Username Instagram">
+                <input id="ig-login-password" type="password"
+                  class="w-full bg-white border-2 border-black px-3 py-2 text-xs font-bold outline-none focus:bg-yellow-100"
+                  placeholder="Password Instagram">
+                <button id="ig-login-account-btn"
+                  class="w-full bg-lime-400 hover:bg-lime-300 border-2 border-black font-black text-xs py-2 uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all">
+                  Login via Instagram
+                </button>
+              </div>
               <p class="text-[10px] font-medium text-gray-600">
-                Cookie tersimpan hanya di browser ini. Pakai cookie valid dari akun Instagram yang akan live.
+                Opsi cepat: login langsung pakai akun Instagram. Jika akun minta challenge/2FA, lanjutkan dengan opsi cookie.
               </p>
             </div>
 

@@ -1461,6 +1461,38 @@ class InstagramLiveService {
     };
   }
 
+  async exportInstagramCookieString() {
+    await this.ensureBrowser();
+    if (!this.context) return '';
+
+    const cookies = await this.context.cookies(['https://www.instagram.com/']);
+    const normalized = (cookies || [])
+      .filter((item) => item && item.name && String(item.domain || '').includes('instagram.com'))
+      .map((item) => ({
+        name: String(item.name || '').trim(),
+        value: String(item.value || '').trim(),
+      }))
+      .filter((item) => item.name && item.value)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return normalized.map((item) => `${item.name}=${item.value}`).join('; ');
+  }
+
+  applyAuthenticatedState({ auth, cookie, source = 'Cookie' }) {
+    this.state.cookieString = cookie;
+    this.state.loggedIn = true;
+    this.state.username = auth.username || null;
+    this.state.chat.items = [];
+    this.state.chat.lastFetchedAt = null;
+    this.state.chat.networkLastAt = null;
+    this.chatNetworkSourceLogged = false;
+    if (this.state.autoReply.enabled) {
+      this.addLog('Auto-reply armed. Loop akan aktif saat stream/live berjalan.');
+    }
+    const sourceLabel = String(source || 'Cookie');
+    this.addLog(`${sourceLabel} login success${this.state.username ? ` as @${this.state.username}` : ''}.`);
+  }
+
   async loginWithCookie(cookieString) {
     return this.runExclusive(async () => {
       const cookie = await this.resolveCookieInput(cookieString);
@@ -1483,21 +1515,69 @@ class InstagramLiveService {
         throw new Error(`Cookie invalid/expired. Redirected to login page (${auth.pageUrl}).`);
       }
 
-      this.state.cookieString = cookie;
-      this.state.loggedIn = true;
-      this.state.username = auth.username || null;
-      this.state.chat.items = [];
-      this.state.chat.lastFetchedAt = null;
-      this.state.chat.networkLastAt = null;
-      this.chatNetworkSourceLogged = false;
-      if (this.state.autoReply.enabled) {
-        this.addLog('Auto-reply armed. Loop akan aktif saat stream/live berjalan.');
-      }
-      this.addLog(`Cookie login success${this.state.username ? ` as @${this.state.username}` : ''}.`);
+      this.applyAuthenticatedState({ auth, cookie, source: 'Cookie' });
       return {
         loggedIn: this.state.loggedIn,
         username: this.state.username,
         pageUrl: auth.pageUrl,
+      };
+    });
+  }
+
+  async loginWithCredentials({ username, password }) {
+    return this.runExclusive(async () => {
+      const safeUsername = String(username || '').trim();
+      const safePassword = String(password || '');
+      if (!safeUsername) {
+        throw new Error('Username Instagram wajib diisi.');
+      }
+      if (!safePassword) {
+        throw new Error('Password Instagram wajib diisi.');
+      }
+
+      await this.gotoInstagram('https://www.instagram.com/accounts/login/');
+      await this.page.waitForTimeout(900);
+
+      const usernameSelector = 'input[name="username"], input[autocomplete="username"]';
+      const passwordSelector = 'input[name="password"], input[type="password"]';
+      await this.page.locator(usernameSelector).first().fill(safeUsername, { timeout: 10000 });
+      await this.page.locator(passwordSelector).first().fill(safePassword, { timeout: 10000 });
+
+      const loginButton = this.page.locator('button[type="submit"], div[role="button"]').filter({ hasText: /log in|masuk/i }).first();
+      await loginButton.click({ timeout: 10000 });
+
+      await this.page.waitForTimeout(5000);
+
+      try {
+        await this.clickByTextRegex(/Not now|Nanti|Lain kali/i);
+        await this.page.waitForTimeout(800);
+      } catch (_) {
+        // ignore optional post-login dialogs
+      }
+
+      const auth = await this.detectLoginStateAndUsername();
+      if (!auth.loggedIn) {
+        this.state.loggedIn = false;
+        this.state.username = null;
+
+        const url = String(auth.pageUrl || this.page?.url?.() || '');
+        if (/two_factor|challenge|checkpoint/i.test(url)) {
+          throw new Error(`Instagram minta verifikasi tambahan (${url}). Selesaikan challenge dulu lalu pakai Login via Cookie.`);
+        }
+        throw new Error(`Login username/password gagal. Redirected to ${url || 'login page'}.`);
+      }
+
+      const cookie = await this.exportInstagramCookieString();
+      if (!cookie || !cookie.includes('=')) {
+        throw new Error('Login berhasil, tapi gagal membaca cookie sesi Instagram.');
+      }
+
+      this.applyAuthenticatedState({ auth, cookie, source: 'Instagram account' });
+      return {
+        loggedIn: this.state.loggedIn,
+        username: this.state.username,
+        pageUrl: auth.pageUrl,
+        cookie,
       };
     });
   }
